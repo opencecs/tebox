@@ -1,0 +1,62 @@
+# ro.hardware is write-once and already set by init from androidboot.hardware
+# (qemu/cmdline/boot: androidboot.hardware=ranchu), so it cannot be set here.
+# The launcher exposes ADB only on the loopback TCP forward.  Keep the
+# bring-up transport usable without an interactive RSA confirmation.
+ro.adb.secure=0
+ro.debuggable=1
+# QEMU TCG runs the first-boot PackageManager work far slower than real
+# hardware. system_server's Watchdog uses 60s * this multiplier, and killed
+# system_server twice at boot phase 550 while the main thread was still busy.
+# 10x keeps the Watchdog from treating slow-but-progressing boot as a hang.
+ro.hw_timeout_multiplier=10
+# The GSI system is Android 13 and the vendor APEXes in this tree are v33.
+# linkerconfig aborts ("undefined var SANITIZER_DEFAULT_VENDOR") when this is
+# unset, which leaves init in the bootstrap mount namespace (only 4 APEXes).
+ro.vndk.version=33
+# The Mystic GSI ships both app_process64 and app_process32, but this vendor
+# tree has only 64-bit EGL/GLES libraries, so the 32-bit zygote cannot run
+# (qemu/init/system-overlay/.../init.zygote64_32.rc omits zygote_secondary).
+# Keep that import name, but advertise a 64-bit-only runtime: A13
+# ZygoteProcess.bootCompleted() notifies every advertised ABI and kills
+# system_server when the 32-bit zygote socket does not exist.
+ro.zygote=zygote64_32
+ro.product.cpu.abilist=arm64-v8a
+ro.product.cpu.abilist64=arm64-v8a
+ro.product.cpu.abilist32=
+persist.sys.glamor=1
+# The GSI's system/build.prop enables Oplus CWB (color-wide-brightness) region
+# sampling, but vendor.oplus.hardware.cwb@1.0 has no service here. SurfaceFlinger's
+# OplusRegionSamplingThread dereferences the null ICwbService and SIGSEGVs on the
+# first display hotplug. vendor/build.prop is loaded after system/build.prop, so
+# these override the =1 defaults in the GSI.
+persist.oplus.display.cwb.status=0
+persist.oplus.display.surfaceflinger.regionsampling.cwb=0
+persist.oplus.display.cwb.debug=0
+debug.renderengine.backend=skiaglthreaded
+debug.renderengine.graphite=0
+debug.renderengine.vulkan=0
+ro.surface_flinger.supports_background_blur=false
+
+ro.sf.lcd_density=420
+debug.hwui.renderer=skiagl
+
+# Dual-SIM soft radio (slot1 T-Mobile US 5G, slot2 Vodafone DE 4G).
+persist.radio.multisim.config=dsds
+ro.telephony.sim.count=2
+# Stable line-1 values used by telephony when the virtual SIM has no EF-MSISDN.
+persist.radio.sim1.number=+8613800138000
+persist.radio.sim2.number=+8613900139000
+persist.radio.line1.number=+8613800138000
+persist.radio.line2.number=+8613900139000
+
+# Soft WiFi HAL chip country (US).
+ro.wifi.channels=
+wifi.interface=wlan0
+
+# Device heap configuration for the default 4 GiB QEMU guest.
+dalvik.vm.heapstartsize=16m
+dalvik.vm.heapgrowthlimit=256m
+dalvik.vm.heapsize=512m
+dalvik.vm.heaptargetutilization=0.75
+dalvik.vm.heapminfree=2m
+dalvik.vm.heapmaxfree=8m

@@ -1,0 +1,24 @@
+# Kernel / androidboot cmdline for this GSI variant.
+# One token per line; blank lines and # comments are ignored.
+# ./run → scripts/boot-qemu.sh reads this file into QEMU -append.
+
+console=ttyAMA0,115200
+earlycon=pl011,0x9000000
+ignore_loglevel
+androidboot.console=ttyAMA0
+# ro.boot.hardware feeds ro.hardware (write-once, init ExportKernelBootProps).
+# Keep ranchu: androidboot.hardware=qcom also flips Build.isQcomPlatform(),
+# which activates ColorOS QCOM paths that need HALs this vendor lacks - notably
+# SoundTriggerModule.attachToHal(), whose QCOM-only `while (mHalService == null)`
+# retry spins system_server forever when no soundtrigger HAL exists. The QTI
+# perf JNI ColorOS needs (system_server otherwise dies in
+# Performance$SendGameLaunchBroadcast) is instead made available by preloading
+# the stub into zygote (qemu/init/system-overlay/system/etc/init/hw/
+# init.zygote64_32.rc): QPerformance.jar is on BOOTCLASSPATH, and ART resolves
+# boot-class natives through dlsym(RTLD_DEFAULT), which sees LD_PRELOADed libs.
+androidboot.hardware=ranchu
+androidboot.selinux=permissive
+androidboot.zygote=zygote64
+androidboot.init_fatal_reboot_target=
+rdinit=/init
+module.sig_enforce=0
