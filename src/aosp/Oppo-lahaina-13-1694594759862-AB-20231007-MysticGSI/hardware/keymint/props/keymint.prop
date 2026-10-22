@@ -1,0 +1,2 @@
+ro.hardware.keystore_deserde=true
+ro.hardware.keystore=keymint

@@ -1,0 +1,4 @@
+# Mesa/GBM readback queries the available CPUs when initializing VirGL.
+# Extend the GSI's swcodec policy through its supported vendor hook.
+# This only permits reading CPU affinity; disk-cache syscalls stay blocked.
+sched_getaffinity: 1

@@ -1,0 +1,35 @@
+ro.hardware=ranchu
+# This QEMU device runs a single 64-bit zygote.
+ro.zygote=zygote64
+ro.product.cpu.abilist=arm64-v8a
+ro.product.cpu.abilist64=arm64-v8a
+ro.product.cpu.abilist32=
+ro.hardware.egl=mesa
+ro.opengles.version=196609
+ro.hardware.gralloc=minigbm
+ro.hardware.hwcomposer=drm_minigbm
+persist.sys.glamor=1
+debug.renderengine.backend=skiaglthreaded
+debug.renderengine.graphite=0
+debug.renderengine.vulkan=0
+ro.surface_flinger.supports_background_blur=false
+
+ro.sf.lcd_density=420
+debug.hwui.renderer=skiagl
+
+# Dual-SIM soft radio (slot1 T-Mobile US 5G, slot2 Vodafone DE 4G).
+persist.radio.multisim.config=dsds
+ro.telephony.sim.count=2
+ro.vendor.api_level=202404
+
+# Soft WiFi HAL chip country (US).
+ro.wifi.channels=
+wifi.interface=wlan0
+
+# Device heap configuration for the default 4 GiB QEMU guest.
+dalvik.vm.heapstartsize=16m
+dalvik.vm.heapgrowthlimit=256m
+dalvik.vm.heapsize=512m
+dalvik.vm.heaptargetutilization=0.75
+dalvik.vm.heapminfree=2m
+dalvik.vm.heapmaxfree=8m

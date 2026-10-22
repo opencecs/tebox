@@ -1,0 +1,16 @@
+<!-- The ColorOS Athena code that com.oplus.exsystemservice loads into
+     system_server calls ServiceManager.isDeclared() for this instance. When it
+     is declared, Athena uses its AIDL helper, which treats a missing service as
+     unavailable and returns defaults. When it is not declared, Athena reflects
+     on the vendor HIDL class
+     vendor.oplus.hardware.performance.V1_0.IPerformance, which this GSI does
+     not ship; Class.forName() returns null and the following getMethod()
+     throws an uncaught NPE that kills system_server during boot. Declaring the
+     instance is enough; no service is registered. -->
+<manifest version="1.0" type="device">
+    <hal format="aidl">
+        <name>vendor.oplus.hardware.performance</name>
+        <version>1</version>
+        <fqname>IPerformance/default</fqname>
+    </hal>
+</manifest>

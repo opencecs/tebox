@@ -1,0 +1,32 @@
+VARIANT=aosp_arm64-BP4A.251205.006
+BUILD_ID=BP4A.251205.006
+INCREMENTAL=14401865
+FINGERPRINT=Android/aosp_arm64/generic_arm64:16/BP4A.251205.006/14401865:user/release-keys
+TARGET=aosp_arm64-user
+ANDROID=16
+SDK=36
+
+# system.img / vendor.img / initramfs.img — under images/:
+IMAGES=src/aosp/aosp_arm64-BP4A.251205.006/images
+# packing inputs (vendor, busybox, init) — under qemu/:
+QEMU_RT=src/aosp/aosp_arm64-BP4A.251205.006/qemu
+# GSI link libs — under prebuilts/:
+GSI_LIBS=src/aosp/aosp_arm64-BP4A.251205.006/prebuilts/gsi-lib64
+GSI_CI=https://ci.android.com/builds/submitted/14401865/aosp_arm64-user/latest
+GSI_RELEASES=https://developers.google.com/android/gsi
+# Download system.img from CI artifacts or the matching arm64 GSI zip for BP4A.251205.006,
+# place it at images/system.img (convert sparse with simg2img), then:
+#   bash scripts/extract-gsi-libs.sh
+
+
+# AOSP source matching this build (BUILD_ID=BP4A.251205.006 in platform/build):
+AOSP_MANIFEST=https://android.googlesource.com/platform/manifest
+AOSP_MANIFEST_TAG=android-16.0.0_r4
+#   repo init -u https://android.googlesource.com/platform/manifest -b android-16.0.0_r4
+#   repo sync -c -j$(nproc)
+#   lunch aosp_arm64-bp4a-userdebug   # or matching product/flavor
+#   m systemimage
+
+# Kernel used by this variant (see KERNEL file → src/kernel/<id>/):
+KERNEL_ID=gki-6.1-android14-gsi
+KERNEL_FETCHED_FROM=../../kernel/gki-6.1-android14-gsi/FETCHED_FROM.txt
