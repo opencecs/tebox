@@ -1,0 +1,11 @@
+# Placeholder: the initramfs binds this path to qemu/init/init.ranchu.rc.
+on early-init
+    # ro.hardware comes from androidboot.hardware=ranchu (write-once, set by init).
+    setprop ro.zygote zygote64_32
+    setprop debug.renderengine.backend skiaglthreaded
+
+on early-boot
+    start vendor.health-default
+
+on boot
+    start vendor.health-default

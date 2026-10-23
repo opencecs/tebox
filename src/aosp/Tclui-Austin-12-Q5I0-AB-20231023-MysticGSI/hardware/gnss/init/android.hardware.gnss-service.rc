@@ -1,0 +1,6 @@
+service vendor.gnss-hal-aidl /vendor/bin/hw/android.hardware.gnss-service
+    class hal
+    user system
+    group system
+    seclabel u:r:hal_keymint_system:s0
+    interface aidl android.hardware.gnss.IGnss/default

@@ -1,0 +1,14 @@
+# Replaces blank_screen.rc via bind-mount from initramfs.
+service vendor.keymint-default /system/bin/android.hardware.security.keymint-service
+    class early_hal
+    user root
+    group root
+    interface aidl android.hardware.security.keymint.IKeyMintDevice/default
+    interface aidl android.hardware.security.secureclock.ISecureClock/default
+    interface aidl android.hardware.security.sharedsecret.ISharedSecret/default
+
+on early-boot
+    start vendor.keymint-default
+
+on boot
+    start vendor.keymint-default

@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Vendor hardware codecs (GKI QEMU). -->
+<MediaCodecs>
+    <!-- gfxstream: decoded by the host hardware decoder (tebox.vdec); the
+         component is only listed when the guest has that port. -->
+    <Decoders>
+        <MediaCodec name="c2.tebox.avc.decoder" type="video/avc">
+            <Limit name="size" min="64x64" max="8192x8192"/>
+            <Limit name="alignment" value="2x2"/>
+            <Limit name="block-size" value="16x16"/>
+            <Limit name="blocks-per-second" range="1-2088960"/>
+            <Limit name="bitrate" range="1-200000000"/>
+            <Feature name="adaptive-playback"/>
+        </MediaCodec>
+        <MediaCodec name="c2.tebox.hevc.decoder" type="video/hevc">
+            <Limit name="size" min="64x64" max="8192x8192"/>
+            <Limit name="alignment" value="2x2"/>
+            <Limit name="block-size" value="16x16"/>
+            <Limit name="blocks-per-second" range="1-2088960"/>
+            <Limit name="bitrate" range="1-200000000"/>
+            <Feature name="adaptive-playback"/>
+        </MediaCodec>
+    </Decoders>
+    <Encoders>
+        <MediaCodec name="c2.mesa.avc.encoder" type="video/avc">
+            <Alias name="OMX.mesa.avc.encoder"/>
+            <Limit name="size" min="16x16" max="4096x4096"/>
+            <Limit name="alignment" value="2x2"/>
+            <Limit name="block-size" value="16x16"/>
+            <Limit name="blocks-per-second" range="1-244140"/>
+            <Limit name="bitrate" range="1-50000000"/>
+            <Feature name="intra-refresh"/>
+        </MediaCodec>
+    </Encoders>
+</MediaCodecs>

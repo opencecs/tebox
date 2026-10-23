@@ -1,0 +1,6 @@
+service vendor.wifi-supplicant-hal /vendor/bin/hw/android.hardware.wifi.supplicant-service
+    class hal
+    user wifi
+    group wifi inet net_admin
+    seclabel u:r:hal_keymint_system:s0
+    interface aidl android.hardware.wifi.supplicant.ISupplicant/default

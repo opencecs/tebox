@@ -1,0 +1,4 @@
+# Masked for the tebox RogUI variant: init cannot setexeccon() into
+# u:r:AsusPingMonitor:s0 (the ASUS domain is not in the loaded policy), so the
+# forked child aborts with SIGABRT on every start attempt. The daemon is an
+# ASUS factory ping monitor and does nothing useful under QEMU.

@@ -1,0 +1,31 @@
+VARIANT=Tclui-Austin-12-Q5I0-AB-20231023-MysticGSI
+BUILD_ID=SKQ1.211006.001
+FINGERPRINT=TCL/Austin/Austin:12/SKQ1.211006.001/20231023:user/release-keys
+FLAVOR=qssi-user
+ANDROID=12
+SDK=31
+SECURITY_PATCH=2023-07-01
+BUILD_DATE_UTC=1688435591
+
+# system.img — under images/ (extracted from the MysticGSI zip; keep the name):
+IMAGES=src/aosp/Tclui-Austin-12-Q5I0-AB-20231023-MysticGSI/images
+# packing inputs (vendor, busybox, init) — under qemu/:
+QEMU_RT=src/aosp/Tclui-Austin-12-Q5I0-AB-20231023-MysticGSI/qemu
+# GSI link libs — under prebuilts/:
+GSI_LIBS=src/aosp/Tclui-Austin-12-Q5I0-AB-20231023-MysticGSI/prebuilts/gsi-lib64
+# Source: MysticGSI port of the TCL Android 12 (Q5I0) release, downloaded from
+# SourceForge project mystic-gsi-updates/TCLUI as
+# Tclui-Austin-12-Q5I0-AB-20231023-MysticGSI.zip (1,949,996,932 bytes); the
+# archive holds one raw ext4 image, installed here as images/system.img.
+GSI_SOURCE=https://sourceforge.net/projects/mystic-gsi-updates/files/TCLUI/
+
+# Runtime tree provenance: qemu/ was cloned from the Gigaset-13 variant
+# (itself adapted from aosp_arm64-BP4A.251205.006) and adjusted to Android 12:
+# HIDL graphics/health/keymaster instead of AIDL, VNDK 31, SELinux 31.0.
+# The A12 init.rc comes from this system.img with the same three edits used on
+# the Android 13 variants (literal zygote rc import, odsign neutralized,
+# zygote_secondary removed).
+
+# Kernel used by this variant (see KERNEL file → src/kernel/<id>/):
+KERNEL_ID=gki-6.1-android14-gsi
+KERNEL_FETCHED_FROM=../../kernel/gki-6.1-android14-gsi/FETCHED_FROM.txt

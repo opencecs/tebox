@@ -1,0 +1,16 @@
+<?xml version='1.0' encoding='utf-8' standalone='yes' ?>
+<WifiConfigStoreData>
+<int name="Version" value="1" />
+<SoftAp>
+<string name="SSID">TCTAP</string>
+<int name="SecurityType" value="1" />
+<string name="Passphrase">12345678</string>
+<boolean name="HiddenSSID" value="false" />
+<int name="Band" value="1" />
+<int name="Channel" value="0" />
+<boolean name="AutoShutdownEnabled" value="false" />
+<boolean name="ClientControlByUser" value="false" />
+<int name="MaxNumberOfClients" value="0" />
+<int name="MacRandomizationSetting" value="1" />
+</SoftAp>
+</WifiConfigStoreData>

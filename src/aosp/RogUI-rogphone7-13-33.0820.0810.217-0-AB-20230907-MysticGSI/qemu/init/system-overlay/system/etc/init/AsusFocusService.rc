@@ -1,0 +1,4 @@
+# Masked for the tebox RogUI variant: init cannot setexeccon() into
+# u:r:AsusFocusService:s0 (the ASUS domain is not in the loaded policy), so the
+# forked child aborts with SIGABRT on every property-triggered restart. The
+# daemon is an ASUS focus/game-mode helper and does nothing useful under QEMU.

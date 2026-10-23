@@ -1,0 +1,15 @@
+service vendor.graphics-stub /vendor/bin/hw/android.hardware.graphics-service
+    class early_hal
+    user root
+    group root
+    stdio_to_kmsg
+    seclabel u:r:hal_keymint_system:s0
+
+service mapper-dlopen-probe /vendor/bin/mapper_dlopen_probe
+    class early_hal
+    user root
+    group root
+    oneshot
+    console
+    disabled
+    seclabel u:r:hal_keymint_system:s0

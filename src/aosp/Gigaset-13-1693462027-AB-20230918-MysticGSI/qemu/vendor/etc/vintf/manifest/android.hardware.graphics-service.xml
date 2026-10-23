@@ -1,0 +1,33 @@
+<!-- Soft graphics HAL stub: composer3 v3 + allocator v2 + mapper.stub -->
+<manifest version="1.0" type="device">
+    <hal format="aidl">
+        <name>android.hardware.graphics.composer3</name>
+        <version>3</version>
+        <fqname>IComposer/default</fqname>
+    </hal>
+    <hal format="aidl">
+        <name>android.hardware.graphics.allocator</name>
+        <version>2</version>
+        <fqname>IAllocator/default</fqname>
+    </hal>
+    <!-- Android 13 libui resolves IMapper through the passthrough service
+         manager; <transport>passthrough</transport> is what makes
+         getRawServiceInternal() accept the -impl library. -->
+    <hal format="hidl">
+        <name>android.hardware.graphics.mapper</name>
+        <transport arch="64">passthrough</transport>
+        <version>4.0</version>
+        <interface>
+            <name>IMapper</name>
+            <instance>default</instance>
+        </interface>
+    </hal>
+    <hal format="native">
+        <name>mapper</name>
+        <version>5.0</version>
+        <interface>
+            <name>IMapper</name>
+            <instance>stub</instance>
+        </interface>
+    </hal>
+</manifest>

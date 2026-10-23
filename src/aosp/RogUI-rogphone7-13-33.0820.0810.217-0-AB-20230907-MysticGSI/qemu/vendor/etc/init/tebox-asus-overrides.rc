@@ -1,0 +1,23 @@
+# The RogUI GSI ships ASUS vendor services whose SELinux domains live in the
+# vendor sepolicy. This variant boots with a stub vendor image, so the loaded
+# policy has no AsusRouteMonitor / AsusPingMonitor types: init's setexeccon()
+# fails with EINVAL and LOG(FATAL) aborts the forked child on every start
+# attempt, which runs crash_dump every few seconds and is very expensive under
+# TCG. Redefine both as one-shot no-ops in a domain that does exist.
+service AsusRouteMonitor /system/bin/true
+    class main
+    user root
+    group root
+    seclabel u:r:su:s0
+    override
+    oneshot
+    disabled
+
+service AsusPingMonitor /system/bin/true
+    class main
+    user root
+    group root
+    seclabel u:r:su:s0
+    override
+    oneshot
+    disabled

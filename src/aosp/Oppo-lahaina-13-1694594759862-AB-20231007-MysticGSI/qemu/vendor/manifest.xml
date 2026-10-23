@@ -1,0 +1,142 @@
+<!-- Combined vendor HAL manifest (legacy path servicemanager also probes). -->
+<manifest version="1.0" type="device">
+    <hal format="aidl">
+        <name>android.hardware.security.keymint</name>
+        <version>4</version>
+        <fqname>IKeyMintDevice/default</fqname>
+    </hal>
+    <hal format="aidl">
+        <name>android.hardware.security.secureclock</name>
+        <fqname>ISecureClock/default</fqname>
+    </hal>
+    <hal format="aidl">
+        <name>android.hardware.security.sharedsecret</name>
+        <fqname>ISharedSecret/default</fqname>
+    </hal>
+    <hal format="aidl">
+        <name>android.hardware.graphics.composer3</name>
+        <version>3</version>
+        <fqname>IComposer/default</fqname>
+    </hal>
+    <hal format="aidl">
+        <name>android.hardware.graphics.allocator</name>
+        <version>2</version>
+        <fqname>IAllocator/default</fqname>
+    </hal>
+    <hal format="hidl">
+        <name>android.hardware.graphics.mapper</name>
+        <transport arch="64">passthrough</transport>
+        <version>4.0</version>
+        <interface>
+            <name>IMapper</name>
+            <instance>default</instance>
+        </interface>
+    </hal>
+    <hal format="native">
+        <name>mapper</name>
+        <version>5.0</version>
+        <interface>
+            <name>IMapper</name>
+            <instance>stub</instance>
+        </interface>
+    </hal>
+    <hal format="aidl">
+        <name>android.hardware.health</name>
+        <version>3</version>
+        <fqname>IHealth/default</fqname>
+    </hal>
+    <hal format="aidl">
+        <name>android.hardware.sensors</name>
+        <version>2</version>
+        <fqname>ISensors/default</fqname>
+    </hal>
+    <hal format="aidl">
+        <name>android.hardware.wifi</name>
+        <version>2</version>
+        <fqname>IWifi/default</fqname>
+    </hal>
+
+
+
+
+
+
+<hal format="aidl">
+        <name>android.hardware.wifi.supplicant</name>
+        <version>3</version>
+        <fqname>ISupplicant/default</fqname>
+    </hal>
+    <hal format="aidl">
+        <name>android.hardware.bluetooth</name>
+        <version>1</version>
+        <fqname>IBluetoothHci/default</fqname>
+    </hal>
+    <!-- No android.hardware.biometrics.fingerprint here: the soft fingerprint
+         HAL is not started for this GSI. The Android 13 ColorOS framework calls
+         IFingerprintService.registerAuthenticators() more than once, and each
+         call re-registers every declared sensor; BiometricService rejects the
+         second registration of sensor 0 with "Cannot register duplicate
+         authenticator", which is an uncaught exception in system_server. -->
+    <hal format="aidl">
+        <name>android.hardware.nfc</name>
+        <version>2</version>
+        <fqname>INfc/default</fqname>
+    </hal>
+    <!-- No android.hardware.media.c2 here: the Android 13 GSI's
+         libcodec2_client.so is HIDL-only, and its software C2 store comes from
+         the com.android.media.swcodec APEX. The AIDL media.c2 service from this
+         tree cannot load against the A13 client, so it is not declared. -->
+    <hal format="aidl">
+        <name>android.hardware.power</name>
+        <version>1</version>
+        <fqname>IPower/default</fqname>
+    </hal>
+<hal format="aidl">
+        <name>android.hardware.radio.config</name>
+        <version>3</version>
+        <fqname>IRadioConfig/default</fqname>
+    </hal>
+    <hal format="aidl">
+        <name>android.hardware.radio.modem</name>
+        <version>3</version>
+        <fqname>IRadioModem/slot1</fqname>
+        <fqname>IRadioModem/slot2</fqname>
+    </hal>
+    <hal format="aidl">
+        <name>android.hardware.radio.network</name>
+        <version>3</version>
+        <fqname>IRadioNetwork/slot1</fqname>
+        <fqname>IRadioNetwork/slot2</fqname>
+    </hal>
+    <hal format="aidl">
+        <name>android.hardware.radio.sim</name>
+        <version>3</version>
+        <fqname>IRadioSim/slot1</fqname>
+        <fqname>IRadioSim/slot2</fqname>
+    </hal>
+    <hal format="aidl">
+        <name>android.hardware.radio.data</name>
+        <version>3</version>
+        <fqname>IRadioData/slot1</fqname>
+        <fqname>IRadioData/slot2</fqname>
+    </hal>
+    <hal format="aidl">
+        <name>android.hardware.radio.messaging</name>
+        <version>3</version>
+        <fqname>IRadioMessaging/slot1</fqname>
+        <fqname>IRadioMessaging/slot2</fqname>
+    </hal>
+    <hal format="aidl">
+        <name>android.hardware.radio.voice</name>
+        <version>3</version>
+        <fqname>IRadioVoice/slot1</fqname>
+        <fqname>IRadioVoice/slot2</fqname>
+    </hal>
+    <hal format="aidl">
+        <name>android.hardware.gnss</name>
+        <version>2</version>
+        <fqname>IGnss/default</fqname>
+    </hal>
+</manifest>
+
+

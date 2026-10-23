@@ -1,0 +1,23 @@
+# Seed a valid persisted SoftAp config before the framework starts.
+#
+# TCL's TctWifiManagerEx.getTctDefaultSoftApConfiguration() builds the default
+# soft AP config from the def_framework_softap_* / def_framework_wifi_ap_passward
+# resources. Those live on TCL's per-product vendor overlay, which this QEMU
+# vendor partition does not ship, so the passphrase comes out empty and
+# SoftApConfiguration.Builder.setPassphrase() throws in system_server's
+# WifiHandlerThread, killing the whole framework every boot.
+#
+# WifiApConfigStore.getApConfiguration() returns the persisted config when one
+# exists, so seeding it here avoids the broken default path entirely.
+#
+# init cannot exec /system/bin/sh (there is no init -> shell domain transition),
+# so this uses init's own builtins instead of a shell script. This init's copy
+# takes only <src> <dst>, so ownership and mode are set separately.
+# The copy overwrites any runtime edits each boot; that is acceptable for this VM
+# and keeps the framework from ever reaching TCL's default builder.
+on post-fs-data
+    mkdir /data/misc/apexdata/com.android.wifi 0771 root system
+    copy /vendor/etc/tebox/WifiConfigStoreSoftAp.xml /data/misc/apexdata/com.android.wifi/WifiConfigStoreSoftAp.xml
+    chown system system /data/misc/apexdata/com.android.wifi/WifiConfigStoreSoftAp.xml
+    chmod 0600 /data/misc/apexdata/com.android.wifi/WifiConfigStoreSoftAp.xml
+    restorecon /data/misc/apexdata/com.android.wifi/WifiConfigStoreSoftAp.xml

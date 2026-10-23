@@ -1,0 +1,6 @@
+service vendor.fingerprint-hal-aidl /vendor/bin/hw/android.hardware.biometrics.fingerprint-service
+    class hal
+    user system
+    group system
+    seclabel u:r:hal_keymint_system:s0
+    interface aidl android.hardware.biometrics.fingerprint.IFingerprint/default
