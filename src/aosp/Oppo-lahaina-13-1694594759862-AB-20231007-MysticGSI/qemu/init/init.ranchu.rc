@@ -1,0 +1,179 @@
+on early-init
+    # ro.hardware is already ranchu: init maps ro.boot.hardware (androidboot.hardware
+    # in qemu/cmdline/boot) to it in ExportKernelBootProps, write-once. Do not set
+    # it here (ro.* is write-once; the write would be dropped and the value is
+    # wrong if it ever changed). The QTI perf JNI is preloaded into zygote via
+    # LD_PRELOAD instead of relying on Build.isQcomPlatform().
+    # Userdata is mounted unencrypted by the initramfs; the GSI init.rc gates
+    # zygote-start on this property.
+    setprop ro.crypto.state unencrypted
+    # GPU backend from androidboot.tebox.gpu (HALs read ro.boot.tebox.gpu):
+    # virgl (Mesa) or gfxstream (ANGLE on the gfxstream Vulkan driver;
+    # boot-qemu.sh FORCE_RUTABAGA=1, the default). The vendor props leave
+    # these unset so this is their only writer.
+    setprop ro.hardware.egl ${ro.boot.hardwareegl:-mesa}
+    setprop ro.opengles.version ${ro.boot.opengles.version:-196609}
+    setprop ro.hardware.gralloc ${ro.boot.hardware.gralloc:-minigbm}
+    setprop ro.hardware.hwcomposer ${ro.boot.hardware.hwcomposer:-drm_minigbm}
+    setprop ro.hardware.vulkan ${ro.boot.hardware.vulkan}
+    # App UI renderer (androidboot.hwui.renderer): gfxstream uses skiavk, as
+    # HWUI on ANGLE's GLES misrenders some backgrounds on CIX Mali (launcher
+    # all-apps scrim drawn transparent); VirGL has no guest Vulkan: skiagl.
+    setprop debug.hwui.renderer ${ro.boot.hwui.renderer:-skiagl}
+    setprop ro.zygote zygote64_32
+    setprop debug.renderengine.backend skiaglthreaded
+    setprop ro.vendor.build.version.sdk 33
+    setprop ro.vendor.build.security_patch 2023-09-05
+    setprop dalvik.vm.dex2oat64 true
+    # The GSI already exposes its software C2 AIDL store. Its HIDL input
+    # surface fallback requires an OMX HAL which this vendor does not have.
+    setprop media.c2.hal.selection aidl
+    # -1 creates the framework's in-process GraphicBufferSource when the
+    # component store does not implement its own input surface.
+    setprop debug.stagefright.c2inputsurface -1
+    # The initramfs mounts /data, so init never sets its dev.mnt.blk.* derived
+    # properties. ColorOS's init.oplus.rootdir.rc chmods the ext4 reserved
+    # clusters through /sys/fs/ext4/${dev.mnt.blk.userdata}/reserved_clusters;
+    # vdb is the userdata disk attached by boot-qemu.sh, and "data" is the name
+    # AOSP init would derive from the /data mount point.
+    setprop dev.mnt.blk.userdata vdb
+    setprop dev.mnt.blk.data vdb
+    # /data is mounted by initramfs before early_hal starts KeyMint.
+    mkdir /data/misc/qemu-keymint 0700 root root
+    restorecon_recursive /data/misc/qemu-keymint
+    # Soft wificond is bind-mounted from initramfs (rootfs label). Relabel
+    # before class main so init can start it as wificond_exec.
+    restorecon /system/bin/wificond
+
+on init
+    restorecon_recursive /dev/dri
+    # The initramfs mdev creates the DRM nodes 0660 root:graphics before
+    # Android's ueventd starts, so the GSI's "/dev/dri/* 0666 root graphics"
+    # rule never lands. SurfaceFlinger (gid graphics) opens renderD128 either
+    # way, but app UIDs do not have gid 1003: their Mesa EGL then falls back
+    # to swrast, fails to import the gralloc dma-buf ("failed to create DRI
+    # image from FD"), and HWUI never queues a frame - a black screen.
+    chmod 0666 /dev/dri/renderD128
+    # The dir is created before policy load and stays tmpfs-labelled; apps
+    # are then denied DMA-BUF heap allocations (software codecs, SoundPool).
+    restorecon_recursive /dev/dma_heap
+
+# The initramfs already mounts unencrypted userdata; no vold decrypt event follows.
+on post-fs-data
+    trigger nonencrypted
+
+on property:sys.boot_completed=1
+    # settings is a shell script that goes through `cmd`. Run it as root, like
+    # the debug console: init's exec child as uid shell exited 255, so the
+    # original stay_on write never landed. 7 = AC|USB|wireless keeps the
+    # plugged-in VM awake, and the long timeout also covers hosts that report
+    # no charger at all.
+    exec_background u:r:shell:s0 root root -- /system/bin/sh /system/bin/settings put global stay_on_while_plugged_in 7
+    exec_background u:r:shell:s0 root root -- /system/bin/sh /system/bin/settings put system screen_off_timeout 2147483647
+    # ColorOS's three-button navigation crashes SystemUI in a loop:
+    # KeyButtonDrawable asks for a hardware bitmap, Bitmap.copy(HARDWARE)
+    # returns null, and canvas.drawBitmap(null) throws. Gesture mode does not
+    # draw those buttons. OverlayManager re-applies the category default
+    # (threebutton) when user 0 starts, which can land after this hook and
+    # overwrite a one-shot disable/enable, so keep checking for five minutes
+    # and restore the gesture overlays whenever the effective mode (2) falls
+    # back to three-button (0).
+    exec_background u:r:shell:s0 root root -- /system/bin/sh -c "for x in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60; do cmd overlay lookup android android:integer/config_navBarInteractionMode | grep -q 2 || { cmd overlay disable --user 0 com.android.internal.systemui.navbar.threebutton; cmd overlay enable --user 0 com.android.internal.systemui.navbar.gestural; }; sleep 5; done"
+    # The first SystemUI instance starts before the overlay fix lands and
+    # crashes once in three-button mode, leaving an "Android System" dialog.
+    # Close system dialogs after the crash has been reported so the setup
+    # wizard is usable without a manual dismissal.
+    exec_background u:r:shell:s0 root root -- /system/bin/sh -c "sleep 20; am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS"
+    # This Qualcomm vendor app calls the QTI perf HAL from its boot-completed
+    # receiver; that HAL is not in this vendor tree, so it throws
+    # UnsatisfiedLinkError and leaves an "Android System" crash dialog.
+    exec_background u:r:shell:s0 root root -- /system/bin/pm disable-user --user 0 com.qualcomm.qti.workloadclassifier
+    # PackageManager disables the stock launcher alias on first boot. Re-enable
+    # it after boot so the Camera2 app is discoverable from the Launcher.
+    start camera_launcher_enable
+
+service camera_launcher_enable /vendor/bin/enable-camera-launcher.sh
+    class late_start
+    user root
+    group root
+    seclabel u:r:init:s0
+    oneshot
+
+# Opt-in local serial diagnostics for this bring-up image.
+on init && property:ro.boot.qemu_debug=1
+    chcon u:object_r:console_device:s0 /dev/hvc0
+    start qemu-debug-shell
+
+service qemu-debug-shell /system/bin/sh
+    disabled
+    console hvc0
+    user root
+    group root shell log readproc
+    seclabel u:r:shell:s0
+
+on early-boot
+    start vendor.health-default
+
+on boot
+    start vendor.health-default
+
+# TCP ADB when the host launcher passes androidboot.qemu_adb=1 (default).
+# Initramfs clears ro.adb.secure so adbd skips RSA; use the GSI adbd binary.
+# Hosts whose VirGL renderer has a hardware encoder (VideoToolbox, V4L2)
+# expose c2.mesa.avc.encoder through /vendor/etc/media_codecs_tebox_video.xml.
+on early-init && property:ro.boot.tebox.video_encode=1
+    setprop ro.media.xml_variant.codecs _tebox_video
+
+# macOS gfxstream hosts decode on VideoToolbox (tebox.vdec) without the cast
+# encoder; the same XML lists the c2.tebox decoders.
+on early-init && property:ro.boot.tebox.video_decode=1
+    setprop ro.media.xml_variant.codecs _tebox_video
+
+on boot && property:ro.boot.qemu_adb=1
+    # QEMU forwards to 10.0.2.15. Keep early ADB reachable; EthernetService
+    # subsequently provisions eth0 through DHCP and registers routes and DNS
+    # with ConnectivityService. Do not override its default routing here.
+    exec u:r:vendor_init:s0 root root -- /system/bin/ip link set eth0 up
+    exec u:r:vendor_init:s0 root root -- /system/bin/ip addr replace 10.0.2.15/24 dev eth0
+    setprop service.adb.tcp.port 5555
+    setprop sys.usb.config adb
+    start adbd
+
+on property:sys.boot_completed=1 && property:ro.boot.qemu_adb=1
+    # Android netd replaces the initial Linux routing rules. Restrict this
+    # extra lookup to the QEMU host subnet so TCP debugging can send replies.
+    exec u:r:vendor_init:s0 root root -- /system/bin/ip rule add priority 9000 to 10.0.2.0/24 lookup main
+    exec_background u:r:shell:s0 shell shell -- /system/bin/sh /system/bin/settings put global adb_enabled 1
+
+# Zygote must not preload the Vulkan driver: it keeps /dev/dri/renderD128 open
+# and zygote then aborts forking system_server ("Not allowlisted").
+on early-init && property:ro.boot.hwui.renderer=skiavk
+    setprop ro.zygote.disable_gl_preload true
+
+# Debug builds (androidboot.qemu_debug=1): `setprop debug.tebox.perf 1` lets
+# simpleperf profile the whole system, kernel included: SELinux permissive,
+# perf events and kernel symbols opened up (init has the
+# capabilities a shell or the root console lack).
+on property:debug.tebox.perf=1 && property:ro.boot.qemu_debug=1
+    write /sys/fs/selinux/enforce 0
+    write /proc/sys/kernel/perf_event_paranoid -1
+    write /proc/sys/kernel/kptr_restrict 0
+
+# Debug builds: `setprop debug.tebox.prof 1` runs /data/local/tmp/tebox-prof.sh
+# as root with full capabilities (system-wide simpleperf needs them).
+service tebox_prof /system/bin/sh /data/local/tmp/tebox-prof.sh
+    user root
+    group root
+    seclabel u:r:shell:s0
+    disabled
+    oneshot
+
+on property:debug.tebox.prof=1 && property:ro.boot.qemu_debug=1
+    start tebox_prof
+
+# Let SurfaceFlinger use the display's full refresh rate (androidboot.tebox.
+# refresh_hz, see boot-qemu.sh); Android's smooth-display policy otherwise
+# keeps rendering at 60 Hz.
+on property:sys.boot_completed=1
+    exec_background u:r:shell:s0 shell shell -- /system/bin/settings put system peak_refresh_rate ${ro.boot.tebox.refresh_hz:-60}
+    exec_background u:r:shell:s0 shell shell -- /system/bin/settings put system min_refresh_rate ${ro.boot.tebox.refresh_hz:-60}

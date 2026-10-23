@@ -1,0 +1,13 @@
+service vendor.keymint-default /vendor/bin/hw/android.hardware.security.keymint-service
+    class early_hal
+    user root
+    group root
+    console
+    # libkeymint_fake_latest.so is built against a newer libc++ than the
+    # Android 13 system libc++.so and references std::__1::__libcpp_verbose_abort.
+    # The shim exports only that symbol (see hardware/keymint/compat).
+    setenv LD_PRELOAD /vendor/lib64/libkeymint_compat.so
+    seclabel u:r:hal_keymint_system:s0
+    interface aidl android.hardware.security.keymint.IKeyMintDevice/default
+    interface aidl android.hardware.security.secureclock.ISecureClock/default
+    interface aidl android.hardware.security.sharedsecret.ISharedSecret/default

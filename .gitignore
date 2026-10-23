@@ -55,3 +55,4 @@ __pycache__/
 
 # Claude Code runtime state.
 /.claude/scheduled_tasks.lock
+src/aosp/*/images/system.img.orig-mtk

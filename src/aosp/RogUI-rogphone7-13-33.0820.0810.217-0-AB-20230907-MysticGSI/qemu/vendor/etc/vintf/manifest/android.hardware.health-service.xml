@@ -1,0 +1,8 @@
+<!-- Soft Health HAL stub: IHealth AIDL v3 -->
+<manifest version="1.0" type="device">
+    <hal format="aidl">
+        <name>android.hardware.health</name>
+        <version>3</version>
+        <fqname>IHealth/default</fqname>
+    </hal>
+</manifest>

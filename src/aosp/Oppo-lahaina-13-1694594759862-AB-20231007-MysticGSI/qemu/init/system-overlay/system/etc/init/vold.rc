@@ -1,0 +1,34 @@
+service vold /system/bin/vold \
+        --blkid_context=u:r:blkid:s0 --blkid_untrusted_context=u:r:blkid_untrusted:s0 \
+        --fsck_context=u:r:fsck:s0 --fsck_untrusted_context=u:r:fsck_untrusted:s0
+    class core
+    stdio_to_kmsg
+    ioprio be 2
+    task_profiles ProcessCapacityHigh
+    shutdown critical
+#ifdef OPLUS_FEATURE_STORAGE_MOUNT
+#Xuefeng.Peng@ANDROID.STORAGE.1596362, 2018/12/10, Add for internal sdcard umount
+on property:vold.recovery.mediace=*
+  recovery_recursion /data/media/${vold.recovery.mediace}
+
+on property:vold.destory.systemce=*
+  delete_recursion /data/system_ce/${vold.destory.systemce}
+
+on property:vold.destory.miscce=*
+  delete_recursion /data/misc_ce/${vold.destory.miscce}
+
+on property:vold.destory.userce=*
+  delete_recursion /data/user/${vold.destory.userce}
+
+on property:vold.destory.mediace=*
+  delete_recursion /data/media/${vold.destory.mediace}
+
+on property:vold.destory.recyclece=1
+  delete_recursion /data/.recycle
+#endif/*OPLUS_FEATURE_STORAGE_MOUNT*/
+
+#ifdef OPLUS_FEATURE_DEVICE_LOG
+#YangZhaoJi@Network.DATA, 2020/11/04, Add for qdss system
+on property:sys.modemlog.started=1
+  copyall /data/vendor/oplus/log/device_log/diag_logs /storage/emulated/0/Android/data/com.oplus.olc/files/Log/diag_logs
+#endif

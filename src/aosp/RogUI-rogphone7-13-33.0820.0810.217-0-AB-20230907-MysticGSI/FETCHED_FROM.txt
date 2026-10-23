@@ -1,0 +1,14 @@
+VARIANT=RogUI-rogphone7-13-33.0820.0810.217-0-AB-20230907-MysticGSI
+ANDROID=13
+SDK=33
+BUILD_ID=TKQ1.220928.001
+INCREMENTAL=33.0820.0810.217-0
+FINGERPRINT=asus/WW_AI2205/ASUS_AI2205:13/TKQ1.220928.001/33.0820.0810.217-0:user/release-keys
+SECURITY_PATCH=2023-07-01
+DEVICE=ASUS_AI2205 (ASUS ROG Phone 7, Qualcomm qssi, WW)
+GSI_SOURCE=local (MysticGSI RogUI port, ro.build.display.id=Ported.By.MysticTech)
+KERNEL_ID=gki-6.1-android14-gsi
+IMAGES=src/aosp/RogUI-rogphone7-13-33.0820.0810.217-0-AB-20230907-MysticGSI/images
+QEMU_RT=src/aosp/RogUI-rogphone7-13-33.0820.0810.217-0-AB-20230907-MysticGSI/qemu
+GSI_LIBS=src/aosp/RogUI-rogphone7-13-33.0820.0810.217-0-AB-20230907-MysticGSI/prebuilts/gsi-lib64
+NOTES=qemu/ is the Android 13 bring-up tree from the Gigaset MysticGSI variant (commit a544bbef7): A13 SELinux policy 33.0, HIDL IMapper@4.0 passthrough, HIDL audio 7.1/7.0, KeyMint A13 libs, zygote64_32 overlay. qemu/init/init.rc and init.rc.raw were regenerated from this image's own /system/etc/init/hw/init.rc with the same A13 edits (forced init.zygote64_32.rc import, odsign replaced by done props, zygote_secondary starts removed). GPU backend is virgl (the tree QEMU has no rutabaga device).

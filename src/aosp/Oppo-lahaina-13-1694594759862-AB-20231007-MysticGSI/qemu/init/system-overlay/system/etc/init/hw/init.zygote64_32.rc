@@ -1,0 +1,63 @@
+service zygote /system/bin/app_process64 -Xzygote /system/bin --zygote --start-system-server --socket-name=zygote
+    class main
+    stdio_to_kmsg
+    priority -20
+    # ColorOS's QPerformance.jar (com.qualcomm.qti.Performance) is on
+    # BOOTCLASSPATH, and its native methods have no library here: zygote only
+    # System.loadLibrary("qti_performance") under Build.isQcomPlatform(), which
+    # is false with ro.boot.hardware=ranchu. system_server then throws
+    # UnsatisfiedLinkError in Performance$SendGameLaunchBroadcast and dies
+    # (e.g. when Settings opens the wallpaper picker). Preload the no-op stub
+    # the initramfs bind-mounts over
+    # /system/system_ext/lib64/libqti_performance.so. Exporting the mangled
+    # JNI names is not enough on its own: libart.so lives in the
+    # com_android_art linker namespace, whose link to the default namespace is
+    # a soname whitelist that does not include this library, so
+    # dlsym(RTLD_DEFAULT) cannot see the preload. The on late-init hook below
+    # adds the soname to /linkerconfig/ld.config.txt before zygote starts.
+    setenv LD_PRELOAD /system/system_ext/lib64/libqti_performance.so
+    user root
+    group root readproc reserved_disk
+    socket zygote stream 660 root system
+    socket usap_pool_primary stream 660 root system
+    onrestart exec_background - system system -- /system/bin/vdc volume abort_fuse
+    onrestart write /sys/power/state on
+    onrestart restart audioserver
+    onrestart restart cameraserver
+    onrestart restart media
+    onrestart restart media.tuner
+    onrestart restart netd
+    onrestart restart wificond
+    onrestart restart oplus_last_boot_reasons
+    task_profiles ProcessCapacityHigh MaxPerformance
+    critical window=${zygote.critical_window.minute:-off} target=zygote-fatal
+    #ifdef OPLUS_FEATURE_SENSOR
+    #tangjh@PSW.Bsp.Sensor ,2020/2/17 add for reboot adsp for BUG#2823787
+    onrestart restart vendor.sensors-hal-2-1-multihal
+    #endif
+#ifdef OPLUS_FEATURE_QUICKBOOT
+#Jianhua.Sun@ANDROID.BOOT.QUICKBOOT.1129994, 2016/06/06, Modify for quickboot
+    disabled
+#endif /* OPLUS_FEATURE_QUICKBOOT */
+
+# zygote_secondary (32-bit app_process) is intentionally not defined: the
+# vendor tree ships only 64-bit EGL/GLES libraries, so app_process32 aborts at
+# startup and its onrestart restarts zygote, which kills system_server.
+
+# This file is imported by init.rc and imports are parsed after the importing
+# file, so this post-fs-data action runs after init.rc's post-fs-data action.
+# That action calls enter_default_mount_ns (init switches into the default
+# mount namespace and binds /linkerconfig/default over /linkerconfig) and then
+# perform_apex_config, which regenerates /linkerconfig/ld.config.txt with the
+# mounted APEX modules. The zygote-start actions are queued behind the
+# post-fs-data batch, so patching here lands before zygote execs. A late-init
+# hook is too early: it runs before the APEX-aware regeneration, and an exec
+# service started that early is marked pre-APEX and runs in the bootstrap
+# mount namespace, where /linkerconfig has no com_android_art namespace at
+# all (the script addresses init's view through /proc/1/root).
+# The script is placed on /data by the initramfs (system.img is read-only, so
+# the system-overlay cannot add a new file under /system/bin). Run it through
+# /system/bin/sh: init refuses to exec an unlabeled /data file even in
+# permissive mode ("no domain transition from u:r:init:s0").
+on post-fs-data
+    exec - root root -- /system/bin/sh /data/local/tmp/patch-qti-perf-linkerconfig.sh
