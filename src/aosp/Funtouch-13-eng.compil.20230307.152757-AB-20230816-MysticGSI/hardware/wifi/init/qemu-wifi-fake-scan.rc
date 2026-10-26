@@ -1,0 +1,15 @@
+# Soft WiFi: inject framework fake scan results (no kernel/nl80211 required).
+# Settings shows a fixed-for-this-boot SSID list; association is not expected.
+# Same bring-up seclabel/exec type as other soft vendor HALs (shell cannot read
+# vendor_file even under a permissive guest).
+
+service qemu-wifi-fake-scan /vendor/bin/qemu-wifi-fake-scan.sh
+    class late_start
+    user root
+    group root inet wifi
+    oneshot
+    disabled
+    seclabel u:r:hal_keymint_system:s0
+
+on property:sys.boot_completed=1
+    start qemu-wifi-fake-scan

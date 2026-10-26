@@ -1,0 +1,6 @@
+service vendor.nfc-hal-aidl /vendor/bin/hw/android.hardware.nfc-service
+    class hal
+    user system
+    group system
+    seclabel u:r:hal_keymint_system:s0
+    interface aidl android.hardware.nfc.INfc/default
