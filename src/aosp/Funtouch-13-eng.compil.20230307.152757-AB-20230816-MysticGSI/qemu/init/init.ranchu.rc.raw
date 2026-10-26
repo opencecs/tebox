@@ -1,0 +1,18 @@
+on early-init
+    setprop ro.hardware ranchu
+    setprop ro.zygote zygote64
+
+# KeyMint lives on vendor tmpfs; declare + start from hardware rc (system-visible).
+service vendor.keymint-default /vendor/bin/hw/android.hardware.security.keymint-service
+    class early_hal
+    user nobody
+    group nobody
+    interface aidl android.hardware.security.keymint.IKeyMintDevice/default
+    interface aidl android.hardware.security.secureclock.ISecureClock/default
+    interface aidl android.hardware.security.sharedsecret.ISharedSecret/default
+
+on early-boot
+    start vendor.keymint-default
+
+on boot
+    start vendor.keymint-default

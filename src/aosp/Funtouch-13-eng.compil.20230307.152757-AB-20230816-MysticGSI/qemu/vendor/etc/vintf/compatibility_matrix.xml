@@ -1,0 +1,3 @@
+<compatibility-matrix version="1.0" type="device">
+    <!-- This local vendor image has no additional framework HAL requirements. -->
+</compatibility-matrix>
