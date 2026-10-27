@@ -1,0 +1,209 @@
+on early-init
+    # Userdata is mounted unencrypted by the initramfs; the Android 12 GSI
+    # init.rc gates all three zygote-start actions on this property.
+    setprop ro.crypto.state unencrypted
+    setprop ro.hardware ranchu
+    # tebox bring-up: persist logcat under /data/misc/logd so a run can be
+    # inspected offline even when adb never becomes reachable.
+    setprop persist.logd.logpersistd logcat
+    write /dev/kmsg tebox-diag:early-init
+    write /dev/kmsg tebox-diag:qemu_adb=${ro.boot.qemu_adb}
+    # GPU backend from androidboot.tebox.gpu (HALs read ro.boot.tebox.gpu):
+    # virgl (Mesa) or gfxstream (ANGLE on the gfxstream Vulkan driver;
+    # boot-qemu.sh FORCE_RUTABAGA=1, the default). The vendor props leave
+    # these unset so this is their only writer.
+    setprop ro.hardware.egl ${ro.boot.hardwareegl:-mesa}
+    setprop ro.opengles.version ${ro.boot.opengles.version:-196609}
+    setprop ro.hardware.gralloc ${ro.boot.hardware.gralloc:-minigbm}
+    setprop ro.hardware.hwcomposer ${ro.boot.hardware.hwcomposer:-drm_minigbm}
+    setprop ro.hardware.vulkan ${ro.boot.hardware.vulkan}
+    # App UI renderer (androidboot.hwui.renderer): gfxstream uses skiavk, as
+    # HWUI on ANGLE's GLES misrenders some backgrounds on CIX Mali (launcher
+    # all-apps scrim drawn transparent); VirGL has no guest Vulkan: skiagl.
+    setprop debug.hwui.renderer ${ro.boot.hwui.renderer:-skiagl}
+    # The GSI ships init.zygote64_32.rc (no init.zygote64.rc); the overlay in
+    # qemu/init/system-overlay drops the 32-bit secondary service.
+    setprop ro.zygote zygote64_32
+    setprop debug.renderengine.backend skiaglthreaded
+    setprop ro.vendor.build.version.sdk 31
+    setprop ro.vendor.build.security_patch 2023-07-01
+    setprop dalvik.vm.dex2oat64 true
+    # The GSI already exposes its software C2 AIDL store. Its HIDL input
+    # surface fallback requires an OMX HAL which this vendor does not have.
+    setprop media.c2.hal.selection aidl
+    # -1 creates the framework's in-process GraphicBufferSource when the
+    # component store does not implement its own input surface.
+    setprop debug.stagefright.c2inputsurface -1
+    # /data is mounted by initramfs before early_hal starts KeyMint.
+    mkdir /data/misc/qemu-keymint 0700 root root
+    restorecon_recursive /data/misc/qemu-keymint
+    # Soft wificond is bind-mounted from initramfs (rootfs label). Relabel
+    # before class main so init can start it as wificond_exec.
+    restorecon /system/bin/wificond
+
+on init
+    restorecon_recursive /dev/dri
+    # The initramfs mdev creates the DRM nodes 0660 root:graphics before
+    # Android's ueventd starts, so the GSI's "/dev/dri/* 0666 root graphics"
+    # rule never lands. SurfaceFlinger (gid graphics) opens renderD128 either
+    # way, but app UIDs do not have gid 1003: their Mesa EGL then falls back
+    # to swrast and HWUI never queues a frame - a black screen.
+    chmod 0666 /dev/dri/renderD128
+    # The dir is created before policy load and stays tmpfs-labelled; apps
+    # are then denied DMA-BUF heap allocations (software codecs, SoundPool).
+    restorecon_recursive /dev/dma_heap
+
+# The initramfs already mounts unencrypted userdata; no vold decrypt event follows.
+on post-fs-data
+    # This GSI's /system/build.prop sets persist.default.rotation=1: the source
+    # tablet uses a portrait-mounted panel and forces a landscape UI. On
+    # tebox's 1080x2400 panel that renders the whole UI rotated 90 degrees.
+    # system_server's DisplayRotation reads the property, so force the panel's
+    # native orientation here; doing it after /data is mounted also covers a
+    # fresh userdata, where the persistent value is absent and build.prop's 1
+    # would otherwise win.
+    setprop persist.default.rotation 0
+    trigger nonencrypted
+
+on late-init
+
+on property:sys.boot_completed=1
+    write /dev/kmsg tebox-diag:boot-completed
+    # settings is a shell script, not an init service executable. Use the shell
+    # domain explicitly so init can launch it and the plugged-in VM stays awake.
+    exec_background u:r:shell:s0 shell shell -- /system/bin/sh /system/bin/settings put global stay_on_while_plugged_in 1
+    # system_server's showSystemReadyErrorDialogsIfNeeded flags this
+    # GSI+vendor pair as inconsistent (Build.isBuildConsistent) and shows
+    # "There's an internal problem with your device" over the Launcher until
+    # someone taps OK. The warning is harmless, but on first boot (dexopt) it
+    # can appear well after boot_completed and FallbackHome stays up until the
+    # real Launcher is ready, so keep dismissing and re-homing for ~2 minutes.
+    #
+    # Re-home ONLY while FallbackHome or the setup wizard is in front. The
+    # pm/locksettings calls above can take many minutes under TCG, so an
+    # unconditional `am start HOME` every 15 s lands after the user has begun
+    # using the device and yanks every app they open back to the Launcher.
+    # The "internal problem" dialog is dismissed by CLOSE_SYSTEM_DIALOGS
+    # (AppErrors listens for it), not by HOME, so the focus check loses
+    # nothing.
+    #
+    # Google's setup wizard otherwise stays on top of the launcher, and this
+    # GSI's com.android.nfc SIGSEGVs in JNI_OnLoad every 5 s: libnfc-nci's
+    # AIDL INfc::getService() returns null (despite the vendor AIDL service
+    # being registered) and the HIDL fallback null-derefs. The app is
+    # android:persistent, so ActivityManager restarts it even after
+    # pm disable-user and am force-stop; only uninstalling it for user 0
+    # stops the loop. Provision the device, drop NFC and disable the keyguard
+    # so a fresh userdata lands straight on the Blackview launcher.
+    exec_background u:r:shell:s0 shell shell -- /system/bin/sh -c "sleep 5; settings put global device_provisioned 1; settings put secure user_setup_complete 1; pm disable-user --user 0 com.google.android.setupwizard; pm uninstall --user 0 com.android.nfc; locksettings set-disabled true; for i in 1 2 3 4 5 6 7 8; do wm dismiss-keyguard; am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS; focus=$(dumpsys window 2>/dev/null | grep mCurrentFocus | head -1); case $focus in *FallbackHome*|*setupwizard*) am start -a android.intent.action.MAIN -c android.intent.category.HOME ;; esac; sleep 15; done"
+    # PackageManager disables the stock launcher alias on first boot. Re-enable
+    # it after boot so the Camera2 app is discoverable from the Launcher.
+    start camera_launcher_enable
+
+service camera_launcher_enable /vendor/bin/enable-camera-launcher.sh
+    class late_start
+    user root
+    group root
+    seclabel u:r:init:s0
+    oneshot
+
+# Opt-in local serial diagnostics for this bring-up image.
+on init && property:ro.boot.qemu_debug=1
+    chcon u:object_r:console_device:s0 /dev/hvc0
+    start qemu-debug-shell
+
+service qemu-debug-shell /system/bin/sh
+    disabled
+    console hvc0
+    user root
+    group root shell log readproc
+    seclabel u:r:shell:s0
+
+on early-boot
+    start vendor.health-default
+
+on boot
+    start vendor.health-default
+    # tebox bring-up: keep a logcat copy on /data so a run can be inspected
+    # offline (adb is not yet reachable on this GSI).
+    start tebox_logcat
+
+service tebox_logcat /system/bin/logcat -b all -v threadtime -f /data/local/tmp/logcat.txt -n 4 -r 4096
+    class core
+    user root
+    group root log
+    seclabel u:r:shell:s0
+    disabled
+
+# TCP ADB when the host launcher passes androidboot.qemu_adb=1 (default).
+# Initramfs clears ro.adb.secure so adbd skips RSA; use the GSI adbd binary.
+# Hosts whose VirGL renderer has a hardware encoder (VideoToolbox, V4L2)
+# expose c2.mesa.avc.encoder through /vendor/etc/media_codecs_tebox_video.xml.
+on early-init && property:ro.boot.tebox.video_encode=1
+    setprop ro.media.xml_variant.codecs _tebox_video
+
+# macOS gfxstream hosts decode on VideoToolbox (tebox.vdec) without the cast
+# encoder; the same XML lists the c2.tebox decoders.
+on early-init && property:ro.boot.tebox.video_decode=1
+    setprop ro.media.xml_variant.codecs _tebox_video
+
+on boot && property:ro.boot.qemu_adb=1
+    # QEMU forwards to 10.0.2.15. Keep early ADB reachable; EthernetService
+    # subsequently provisions eth0 through DHCP and registers routes and DNS
+    # with ConnectivityService. Do not override its default routing here.
+    write /dev/kmsg tebox-diag:adb-block-begin
+    exec u:r:vendor_init:s0 root root -- /system/bin/ip link set eth0 up
+    write /dev/kmsg tebox-diag:ip-link-done
+    exec u:r:vendor_init:s0 root root -- /system/bin/ip addr replace 10.0.2.15/24 dev eth0
+    write /dev/kmsg tebox-diag:ip-addr-done
+    # netd later installs its own policy-routing rules; without this extra
+    # rule the guest's replies to the QEMU host subnet leave through the wrong
+    # table and the ADB TCP handshake never completes (device stays "offline").
+    # Added here, not at boot_completed, so ADB works during bring-up too.
+    exec u:r:vendor_init:s0 root root -- /system/bin/ip rule add priority 9000 to 10.0.2.0/24 lookup main
+    write /dev/kmsg tebox-diag:ip-rule-done
+    setprop service.adb.tcp.port 5555
+    setprop sys.usb.config adb
+    write /dev/kmsg tebox-diag:adb-props-set
+    start adbd
+    write /dev/kmsg tebox-diag:adbd-start-issued
+    # tebox bring-up: snapshot eth0/routing/adb state 5s after adbd starts.
+    exec_background u:r:vendor_init:s0 root root -- /system/bin/sh -c "sleep 5; { ip addr; ip route; echo ---rules---; ip rule; echo ---tcp---; grep -i :15B3 /proc/net/tcp; echo ---tcp6---; grep -i :15B3 /proc/net/tcp6; getprop | grep -i adb; } > /data/local/tmp/netdiag.txt 2>&1"
+
+on property:sys.boot_completed=1 && property:ro.boot.qemu_adb=1
+    # The QEMU-subnet policy-routing rule is added in the on-boot ADB block
+    # above so TCP debugging works during bring-up as well.
+    exec_background u:r:shell:s0 shell shell -- /system/bin/sh /system/bin/settings put global adb_enabled 1
+
+# Zygote must not preload the Vulkan driver: it keeps /dev/dri/renderD128 open
+# and zygote then aborts forking system_server ("Not allowlisted").
+on early-init && property:ro.boot.hwui.renderer=skiavk
+    setprop ro.zygote.disable_gl_preload true
+
+# Debug builds (androidboot.qemu_debug=1): `setprop debug.tebox.perf 1` lets
+# simpleperf profile the whole system, kernel included: SELinux permissive,
+# perf events and kernel symbols opened up (init has the
+# capabilities a shell or the root console lack).
+on property:debug.tebox.perf=1 && property:ro.boot.qemu_debug=1
+    write /sys/fs/selinux/enforce 0
+    write /proc/sys/kernel/perf_event_paranoid -1
+    write /proc/sys/kernel/kptr_restrict 0
+
+# Debug builds: `setprop debug.tebox.prof 1` runs /data/local/tmp/tebox-prof.sh
+# as root with full capabilities (system-wide simpleperf needs them).
+service tebox_prof /system/bin/sh /data/local/tmp/tebox-prof.sh
+    user root
+    group root
+    seclabel u:r:shell:s0
+    disabled
+    oneshot
+
+on property:debug.tebox.prof=1 && property:ro.boot.qemu_debug=1
+    start tebox_prof
+
+# Let SurfaceFlinger use the display's full refresh rate (androidboot.tebox.
+# refresh_hz, see boot-qemu.sh); Android's smooth-display policy otherwise
+# keeps rendering at 60 Hz.
+on property:sys.boot_completed=1
+    exec_background u:r:shell:s0 shell shell -- /system/bin/settings put system peak_refresh_rate ${ro.boot.tebox.refresh_hz:-60}
+    exec_background u:r:shell:s0 shell shell -- /system/bin/settings put system min_refresh_rate ${ro.boot.tebox.refresh_hz:-60}
