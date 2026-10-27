@@ -1,0 +1,38 @@
+<!-- Android 12 HIDL graphics stack: composer 2.x + allocator 4.0 over
+     hwbinder, mapper 4.0 passthrough (loaded in-process by libui). -->
+<manifest version="1.0" type="device">
+    <!-- One <hal> per name: A12 libvintf rejects a second entry with the same
+         name in the same file, and rejects several <version> tags of one major
+         in one <hal>. Declaring the newest minor is enough: manifest lookups
+         match with Version::minorAtLeast(), so 2.4 also serves 2.1-2.3. -->
+    <hal format="hidl">
+        <name>android.hardware.graphics.composer</name>
+        <transport>hwbinder</transport>
+        <version>2.4</version>
+        <interface>
+            <name>IComposer</name>
+            <instance>default</instance>
+        </interface>
+    </hal>
+    <hal format="hidl">
+        <name>android.hardware.graphics.allocator</name>
+        <transport>hwbinder</transport>
+        <version>4.0</version>
+        <interface>
+            <name>IAllocator</name>
+            <instance>default</instance>
+        </interface>
+    </hal>
+    <!-- Android 12 libui resolves IMapper through the passthrough service
+         manager; <transport>passthrough</transport> is what makes
+         getRawServiceInternal() accept the -impl library. -->
+    <hal format="hidl">
+        <name>android.hardware.graphics.mapper</name>
+        <transport arch="64">passthrough</transport>
+        <version>4.0</version>
+        <interface>
+            <name>IMapper</name>
+            <instance>default</instance>
+        </interface>
+    </hal>
+</manifest>

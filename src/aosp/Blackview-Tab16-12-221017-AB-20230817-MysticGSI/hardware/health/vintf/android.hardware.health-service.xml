@@ -1,0 +1,13 @@
+<!-- Android 12 HIDL health HAL: IHealth@2.1/default over hwbinder. A12's
+     system_server BatteryService has no AIDL health client. -->
+<manifest version="1.0" type="device">
+    <hal format="hidl">
+        <name>android.hardware.health</name>
+        <transport>hwbinder</transport>
+        <version>2.1</version>
+        <interface>
+            <name>IHealth</name>
+            <instance>default</instance>
+        </interface>
+    </hal>
+</manifest>

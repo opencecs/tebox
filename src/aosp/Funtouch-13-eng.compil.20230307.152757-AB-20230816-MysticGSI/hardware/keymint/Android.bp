@@ -1,0 +1,70 @@
+// Soft KeyMint HAL (vendor). Soong build; needs AOSP keymaster libs.
+
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
+cc_binary {
+    name: "android.hardware.security.keymint-service",
+    relative_install_path: "hw",
+    vendor: true,
+    init_rc: ["init/android.hardware.security.keymint-service.rc"],
+    vintf_fragments: ["vintf/android.hardware.security.keymint-service.xml"],
+    cflags: [
+        "-Wall",
+        "-Wextra",
+    ],
+    local_include_dirs: [
+        "src",
+        "src/ng/include",
+    ],
+    defaults: [
+        "keymint_use_latest_hal_aidl_ndk_shared",
+    ],
+    srcs: [
+        "src/service.cpp",
+        "src/KeyboxStore.cpp",
+        "src/KeyboxSoftKeymasterContext.cpp",
+        "src/ng/AndroidKeyMintDevice.cpp",
+        "src/ng/AndroidKeyMintOperation.cpp",
+        "src/ng/AndroidSecureClock.cpp",
+        "src/ng/AndroidSharedSecret.cpp",
+        "src/ng/AndroidRemotelyProvisionedComponentDevice.cpp",
+        "src/ng/KeyMintUtils.cpp",
+        "src/ng/keymaster_configuration.cpp",
+    ],
+    shared_libs: [
+        "android.hardware.security.rkp-V3-ndk",
+        "android.hardware.security.secureclock-V1-ndk",
+        "android.hardware.security.sharedsecret-V1-ndk",
+        "libbase",
+        "libbinder_ndk",
+        "libcppbor",
+        "libcrypto",
+        "libcutils",
+        "libkeymaster_messages",
+        "libkeymaster_portable",
+        "liblog",
+        "libpuresoftkeymasterdevice",
+        "libutils",
+    ],
+    required: [
+        "android.hardware.hardware_keystore.xml",
+        "keymint_attestation_keybox",
+    ],
+}
+
+prebuilt_etc {
+    name: "keymint_attestation_keybox",
+    vendor: true,
+    sub_dir: "keymint",
+    filename: "keybox.xml",
+    src: "keybox/keybox.xml",
+}
+
+prebuilt_etc {
+    name: "android.hardware.hardware_keystore.xml",
+    sub_dir: "permissions",
+    vendor: true,
+    src: "permissions/android.hardware.hardware_keystore.xml",
+}

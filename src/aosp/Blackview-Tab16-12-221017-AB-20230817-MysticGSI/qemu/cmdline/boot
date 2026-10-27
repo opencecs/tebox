@@ -1,0 +1,18 @@
+# Kernel / androidboot cmdline for this GSI variant.
+# One token per line; blank lines and # comments are ignored.
+# ./run → scripts/boot-qemu.sh reads this file into QEMU -append.
+
+console=ttyAMA0,115200
+earlycon=pl011,0x9000000
+ignore_loglevel
+androidboot.console=ttyAMA0
+androidboot.hardware=ranchu
+androidboot.selinux=permissive
+# Per-permission SELinux denials flood the kernel audit backlog (limit 64) and
+# block syscalls in audit_log_start, stalling system_server into a Watchdog
+# kill. Disable the audit subsystem; SELinux policy itself is unaffected.
+audit=0
+androidboot.zygote=zygote64_32
+androidboot.init_fatal_reboot_target=
+rdinit=/init
+module.sig_enforce=0

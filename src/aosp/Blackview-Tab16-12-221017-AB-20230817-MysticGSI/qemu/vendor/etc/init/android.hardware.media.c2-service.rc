@@ -1,0 +1,18 @@
+service vendor.media-c2-mesa /vendor/bin/hw/android.hardware.media.c2-service
+    class hal
+    # tebox bring-up: this prebuilt AIDL C2 store was built against a newer
+    # platform libandroid (AHardwareBuffer_readFromParcel is absent in the
+    # Android 12 GSI), so the linker rejects it on every start and init marks
+    # updatable_crashing. The GSI's media.swcodec APEX provides the software
+    # codecs; keep the vendor store off until it is rebuilt against A12.
+    disabled
+    user mediacodec
+    # cameraserver: the virtio-serial ports (/dev/vport*, ueventd.rc) include
+    # tebox.venc, the host encoder used on the gfxstream backend.
+    group mediacodec drmrpc cameraserver
+    ioprio rt 4
+    seclabel u:r:hal_keymint_system:s0
+    setenv LIBGL_DRIVERS_PATH /vendor/lib64/dri
+    setenv GBM_BACKENDS_PATH /vendor/lib64/gbm
+    setenv GKI_MESA_DIRECT_IMPORT 1
+    interface aidl android.hardware.media.c2.IComponentStore/default

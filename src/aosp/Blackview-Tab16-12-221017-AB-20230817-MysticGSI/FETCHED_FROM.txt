@@ -1,0 +1,33 @@
+VARIANT=Blackview-Tab16-12-221017-AB-20230817-MysticGSI
+BUILD_ID=SP1A.210812.016
+INCREMENTAL=221017
+FINGERPRINT=Blackview/Tab16_NEU/Tab16_NEU:12/SP1A.210812.016/221017:user/release-keys
+ANDROID=12
+SDK=31
+SECURITY_PATCH=2022-09-01
+GSI_SOURCE=https://sourceforge.net/projects/mystic-gsi-updates/files/Blackview/
+
+# system.img — under images/ (extracted from the MysticGSI zip; keep the name):
+IMAGES=src/aosp/Blackview-Tab16-12-221017-AB-20230817-MysticGSI/images
+# packing inputs (vendor, busybox, init) — under qemu/:
+QEMU_RT=src/aosp/Blackview-Tab16-12-221017-AB-20230817-MysticGSI/qemu
+# GSI link libs — under prebuilts/:
+GSI_LIBS=src/aosp/Blackview-Tab16-12-221017-AB-20230817-MysticGSI/prebuilts/gsi-lib64
+
+# Source: MysticGSI port of the Blackview Tab16 (MTK) Android 12 release,
+# downloaded from SourceForge project mystic-gsi-updates/Blackview as
+# Blackview-Tab16-12-221017-AB-20230817-MysticGSI.zip (1,299,062,863 bytes,
+# sha256 e58a084a812fcd76df7ac4dc08bdc1248c6b97ea55691303a302bc1677e0d75b);
+# the archive holds one raw ext4 image (3,009,318,912 bytes, sha256
+# f58064f1ce77b1941bab71fbc3b62729e5387a96eb75940fd4050b60e8bce91c),
+# installed here as images/system.img.
+
+# Runtime tree provenance: copied from the proven Tclui A12 variant
+# (commit e7d4454) — HIDL graphics/health/keymaster instead of AIDL,
+# VNDK 31, SELinux 31.0. TCL-specific bits were audited and removed on
+# 2026-10-27: qemu/init/init.rc is regenerated from THIS image's own
+# /system/etc/init/hw/init.rc (the Tclui copy imported a missing
+# init.perf.rc, fatal to init), the TCLUI debug kmsg line is gone, and the
+# TCTAP SoftAP seed rc/xml were dropped from the vendor template.
+KERNEL_ID=gki-6.1-android14-gsi
+KERNEL_FETCHED_FROM=../../kernel/gki-6.1-android14-gsi/FETCHED_FROM.txt
