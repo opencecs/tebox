@@ -1,0 +1,15 @@
+diff --git a/server/src/main/java/com/genymobile/scrcpy/video/JpegEncoder.java b/server/src/main/java/com/genymobile/scrcpy/video/JpegEncoder.java
+index d58fc7a..42a0d1d 100644
+--- a/server/src/main/java/com/genymobile/scrcpy/video/JpegEncoder.java
++++ b/server/src/main/java/com/genymobile/scrcpy/video/JpegEncoder.java
+@@ -96,0 +97 @@ public class JpegEncoder implements AsyncProcessor {
++                    long nextFrameAtMs = SystemClock.uptimeMillis();
+@@ -106 +107,7 @@ public class JpegEncoder implements AsyncProcessor {
+-                        SystemClock.sleep(frameIntervalMs);
++                        nextFrameAtMs += frameIntervalMs;
++                        long waitMs = nextFrameAtMs - SystemClock.uptimeMillis();
++                        if (waitMs > 0) {
++                            SystemClock.sleep(waitMs);
++                        } else {
++                            nextFrameAtMs = SystemClock.uptimeMillis();
++                        }
