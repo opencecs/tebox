@@ -352,17 +352,19 @@ qmp_screendump(const char *filename, const char *device,
     qemu_console_co_wait_update(con);
 
     /*
-     * All pending coroutines are woken up, while the BQL is held.  No
-     * further graphic update are possible until it is released.  Take
-     * an image ref before that.
+     * dma-buf / GL scanout has no 2D console surface. Read one frame
+     * back from the display before falling through to that surface.
      */
-    surface = qemu_console_surface(con);
-    if (!surface) {
-        error_setg(errp, "no surface");
-        object_unref(con);
-        return;
+    image = qemu_console_gl_readback(con);
+    if (!image) {
+        surface = qemu_console_surface(con);
+        if (!surface) {
+            error_setg(errp, "no surface");
+            object_unref(con);
+            return;
+        }
+        image = pixman_image_ref(surface->image);
     }
-    image = pixman_image_ref(surface->image);
     object_unref(con);
 
     fd = qemu_create(filename, O_WRONLY | O_TRUNC | O_BINARY, 0666, errp);

@@ -1,0 +1,20 @@
+# tebox display-rotation reporter. Verified on R1P: cast.rotation tracks the
+# guest display rotation automatically (landscape->1, portrait->0) end to end.
+#
+# build-vendor-img.sh packs this .rc to /vendor/etc/init/tebox-rotation.rc and
+# the script to /vendor/bin/tebox-rotation.sh (both common, not committed under
+# the variant's qemu/vendor). init imports /vendor/etc/init/*.rc. It runs the
+# reporter in the permissive hal_keymint_system domain: that domain can binder
+# to WindowManager (dumpsys) AND open the bus device, with no custom sepolicy.
+# init also chmods /dev/tebox_ctl 0666 (ueventd coldplug resets the misc node
+# to 0600 root). The tebox_ctl.ko load is in build-initramfs.sh.
+service tebox_rotation /vendor/bin/tebox-rotation.sh
+    class late_start
+    user root
+    group root system
+    seclabel u:r:hal_keymint_system:s0
+    disabled
+
+on property:sys.boot_completed=1
+    chmod 0666 /dev/tebox_ctl
+    start tebox_rotation

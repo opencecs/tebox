@@ -206,6 +206,8 @@ const char *virtio_device_names[] = {
     /* tebox (local): CIX Mali kbase passthrough, id 61 = tebox-mali-proto.h
      * TEBOX_MALI_VIRTIO_ID. */
     [61] = "tebox-mali",
+    /* tebox (local): control bus, id 62 = tebox-ctl-proto.h TEBOX_CTL_VIRTIO_ID. */
+    [62] = "tebox-ctl",
 };
 
 static const char *virtio_id_to_name(uint16_t device_id)

@@ -8,6 +8,9 @@ service AndroidService {
   rpc ListInstances(ListInstancesRequest) returns (ListInstancesResponse);
   rpc GetInstance(InstanceRequest) returns (Instance);
   rpc CreateInstance(CreateInstanceRequest) returns (Instance);
+  // Change a stopped instance's config (resources, boot overrides, profile).
+  // Applied on the next StartInstance.
+  rpc UpdateInstance(UpdateInstanceRequest) returns (Instance);
   rpc DeleteInstance(InstanceRequest) returns (Empty);
   rpc StartInstance(InstanceRequest) returns (Empty);
   rpc StopInstance(InstanceRequest) returns (Empty);
@@ -18,6 +21,10 @@ service AndroidService {
   // Still frame of the guest display. Navigation keys, Android keycodes,
   // text and clipboard stay on the TCP/UDP control port, not gRPC.
   rpc GetPreview(GetPreviewRequest) returns (GetPreviewResponse);
+  // Tail of the instance's serial console capture (per-instance console.log).
+  rpc GetConsoleLog(ConsoleLogRequest) returns (ConsoleLogResponse);
+  // Follow the serial console from near its tail until the client disconnects.
+  rpc StreamConsoleLog(ConsoleLogRequest) returns (stream ConsoleLogChunk);
 }
 
 message Empty {}
@@ -38,6 +45,15 @@ message CreateInstanceRequest {
   // sockets. Absolute, absent or empty, at most 88 bytes (Unix socket
   // paths); removed by DeleteInstance. Empty: <data root>/instances/<id>.
   string instance_dir = 8;
+  // Boot overrides. Empty falls back to the variant's files
+  // (src/aosp/<variant>/qemu/cmdline/boot, GPU, KERNEL), so the image need
+  // not bake those files in.
+  repeated string cmdline = 9;  // kernel cmdline tokens (one per element)
+  string gpu = 10;              // gfxstream | virgl | mali
+  string kernel = 11;           // absolute path to a kernel Image; empty = built-in
+  // Extra cmdline tokens appended on top of cmdline (or the variant default
+  // when cmdline is empty), not replacing it. For custom-kernel tweaks.
+  repeated string append = 12;
 }
 
 message InstanceRequest {
@@ -52,14 +68,43 @@ message ResetInstanceRequest {
 message ConfigureInstanceRequest { string id = 1; DeviceProfile profile = 2; }
 message KeyRequest { string id = 1; string key = 2; }
 
+// A repeated-string value wrapped so absence (null) differs from an empty
+// list: unset leaves the field unchanged, set (even empty) replaces it.
+message StringList { repeated string values = 1; }
+
+// Only the set fields change; the rest keep their current value. Applied on
+// the next StartInstance.
+message UpdateInstanceRequest {
+  string id = 1;
+  optional string name = 2;
+  optional int32 cpu_cores = 3;
+  optional int32 memory_mb = 4;
+  optional string system_image = 5;     // empty string resets to variant default
+  optional string vendor_image = 6;
+  optional string initramfs_image = 7;
+  StringList cmdline = 8;
+  optional string gpu = 9;
+  optional string kernel = 10;
+  StringList append = 11;
+  DeviceProfile profile = 12;
+}
+
+message ConsoleLogRequest {
+  string id = 1;
+  int32 max_bytes = 2;  // tail size; 0 = default (64 KiB), capped at 4 MiB
+}
+message ConsoleLogResponse { bytes data = 1; }
+message ConsoleLogChunk { bytes data = 1; }
+
 message ListInstancesResponse {
   repeated Instance instances = 1;
 }
 
 message Instance {
+  reserved 3;                // was `variant`
+  reserved "variant";
   string id = 1;
   string name = 2;
-  string variant = 3;
   string dir = 4;  // instance directory (userdata, sockets)
   int32 adb_port = 5;
   int32 pid = 6;
@@ -79,6 +124,12 @@ message Instance {
   string vendor_image = 17;
   string initramfs_image = 18;
   int32 disk_free_mb = 19;  // max(0, disk_mb - disk_used_mb)
+  // Boot overrides set at creation; empty cmdline means the API's fixed
+  // default, empty gpu / kernel the variant's files.
+  repeated string cmdline = 20;
+  string gpu = 21;
+  string kernel = 22;
+  repeated string append = 23;
 }
 
 enum InstanceState {

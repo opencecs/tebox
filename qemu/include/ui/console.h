@@ -236,6 +236,13 @@ typedef struct DisplayChangeListenerOps {
     void (*dpy_gl_update)(DisplayChangeListener *dcl,
                           uint32_t x, uint32_t y, uint32_t w, uint32_t h);
 
+    /*
+     * optional: one-shot copy of the current GL scanout. Does not change
+     * the console scanout kind. Caller unrefs the image. screendump uses
+     * this when the scanout is a dma-buf and there is no 2D surface.
+     */
+    pixman_image_t *(*dpy_gl_readback)(DisplayChangeListener *dcl);
+
 } DisplayChangeListenerOps;
 
 struct DisplayChangeListener {
@@ -384,6 +391,8 @@ void qemu_console_set_window_id(QemuConsole *con, int window_id);
 void qemu_console_resize(QemuConsole *con, int width, int height);
 DisplaySurface *qemu_console_surface(QemuConsole *con);
 void coroutine_fn qemu_console_co_wait_update(QemuConsole *con);
+/* One GL scanout frame, or NULL. Caller unrefs. */
+pixman_image_t *qemu_console_gl_readback(QemuConsole *con);
 
 /* console-gl.c */
 #ifdef CONFIG_OPENGL

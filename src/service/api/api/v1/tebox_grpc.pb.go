@@ -22,6 +22,7 @@ const (
 	AndroidService_ListInstances_FullMethodName     = "/tebox.v1.AndroidService/ListInstances"
 	AndroidService_GetInstance_FullMethodName       = "/tebox.v1.AndroidService/GetInstance"
 	AndroidService_CreateInstance_FullMethodName    = "/tebox.v1.AndroidService/CreateInstance"
+	AndroidService_UpdateInstance_FullMethodName    = "/tebox.v1.AndroidService/UpdateInstance"
 	AndroidService_DeleteInstance_FullMethodName    = "/tebox.v1.AndroidService/DeleteInstance"
 	AndroidService_StartInstance_FullMethodName     = "/tebox.v1.AndroidService/StartInstance"
 	AndroidService_StopInstance_FullMethodName      = "/tebox.v1.AndroidService/StopInstance"
@@ -30,6 +31,8 @@ const (
 	AndroidService_SendKey_FullMethodName           = "/tebox.v1.AndroidService/SendKey"
 	AndroidService_PowerDown_FullMethodName         = "/tebox.v1.AndroidService/PowerDown"
 	AndroidService_GetPreview_FullMethodName        = "/tebox.v1.AndroidService/GetPreview"
+	AndroidService_GetConsoleLog_FullMethodName     = "/tebox.v1.AndroidService/GetConsoleLog"
+	AndroidService_StreamConsoleLog_FullMethodName  = "/tebox.v1.AndroidService/StreamConsoleLog"
 )
 
 // AndroidServiceClient is the client API for AndroidService service.
@@ -39,6 +42,9 @@ type AndroidServiceClient interface {
 	ListInstances(ctx context.Context, in *ListInstancesRequest, opts ...grpc.CallOption) (*ListInstancesResponse, error)
 	GetInstance(ctx context.Context, in *InstanceRequest, opts ...grpc.CallOption) (*Instance, error)
 	CreateInstance(ctx context.Context, in *CreateInstanceRequest, opts ...grpc.CallOption) (*Instance, error)
+	// Change a stopped instance's config (resources, boot overrides, profile).
+	// Applied on the next StartInstance.
+	UpdateInstance(ctx context.Context, in *UpdateInstanceRequest, opts ...grpc.CallOption) (*Instance, error)
 	DeleteInstance(ctx context.Context, in *InstanceRequest, opts ...grpc.CallOption) (*Empty, error)
 	StartInstance(ctx context.Context, in *InstanceRequest, opts ...grpc.CallOption) (*Empty, error)
 	StopInstance(ctx context.Context, in *InstanceRequest, opts ...grpc.CallOption) (*Empty, error)
@@ -49,6 +55,10 @@ type AndroidServiceClient interface {
 	// Still frame of the guest display. Navigation keys, Android keycodes,
 	// text and clipboard stay on the TCP/UDP control port, not gRPC.
 	GetPreview(ctx context.Context, in *GetPreviewRequest, opts ...grpc.CallOption) (*GetPreviewResponse, error)
+	// Tail of the instance's serial console capture (per-instance console.log).
+	GetConsoleLog(ctx context.Context, in *ConsoleLogRequest, opts ...grpc.CallOption) (*ConsoleLogResponse, error)
+	// Follow the serial console from near its tail until the client disconnects.
+	StreamConsoleLog(ctx context.Context, in *ConsoleLogRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ConsoleLogChunk], error)
 }
 
 type androidServiceClient struct {
@@ -83,6 +93,16 @@ func (c *androidServiceClient) CreateInstance(ctx context.Context, in *CreateIns
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(Instance)
 	err := c.cc.Invoke(ctx, AndroidService_CreateInstance_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *androidServiceClient) UpdateInstance(ctx context.Context, in *UpdateInstanceRequest, opts ...grpc.CallOption) (*Instance, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Instance)
+	err := c.cc.Invoke(ctx, AndroidService_UpdateInstance_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -169,6 +189,35 @@ func (c *androidServiceClient) GetPreview(ctx context.Context, in *GetPreviewReq
 	return out, nil
 }
 
+func (c *androidServiceClient) GetConsoleLog(ctx context.Context, in *ConsoleLogRequest, opts ...grpc.CallOption) (*ConsoleLogResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ConsoleLogResponse)
+	err := c.cc.Invoke(ctx, AndroidService_GetConsoleLog_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *androidServiceClient) StreamConsoleLog(ctx context.Context, in *ConsoleLogRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ConsoleLogChunk], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &AndroidService_ServiceDesc.Streams[0], AndroidService_StreamConsoleLog_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[ConsoleLogRequest, ConsoleLogChunk]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type AndroidService_StreamConsoleLogClient = grpc.ServerStreamingClient[ConsoleLogChunk]
+
 // AndroidServiceServer is the server API for AndroidService service.
 // All implementations must embed UnimplementedAndroidServiceServer
 // for forward compatibility.
@@ -176,6 +225,9 @@ type AndroidServiceServer interface {
 	ListInstances(context.Context, *ListInstancesRequest) (*ListInstancesResponse, error)
 	GetInstance(context.Context, *InstanceRequest) (*Instance, error)
 	CreateInstance(context.Context, *CreateInstanceRequest) (*Instance, error)
+	// Change a stopped instance's config (resources, boot overrides, profile).
+	// Applied on the next StartInstance.
+	UpdateInstance(context.Context, *UpdateInstanceRequest) (*Instance, error)
 	DeleteInstance(context.Context, *InstanceRequest) (*Empty, error)
 	StartInstance(context.Context, *InstanceRequest) (*Empty, error)
 	StopInstance(context.Context, *InstanceRequest) (*Empty, error)
@@ -186,6 +238,10 @@ type AndroidServiceServer interface {
 	// Still frame of the guest display. Navigation keys, Android keycodes,
 	// text and clipboard stay on the TCP/UDP control port, not gRPC.
 	GetPreview(context.Context, *GetPreviewRequest) (*GetPreviewResponse, error)
+	// Tail of the instance's serial console capture (per-instance console.log).
+	GetConsoleLog(context.Context, *ConsoleLogRequest) (*ConsoleLogResponse, error)
+	// Follow the serial console from near its tail until the client disconnects.
+	StreamConsoleLog(*ConsoleLogRequest, grpc.ServerStreamingServer[ConsoleLogChunk]) error
 	mustEmbedUnimplementedAndroidServiceServer()
 }
 
@@ -204,6 +260,9 @@ func (UnimplementedAndroidServiceServer) GetInstance(context.Context, *InstanceR
 }
 func (UnimplementedAndroidServiceServer) CreateInstance(context.Context, *CreateInstanceRequest) (*Instance, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateInstance not implemented")
+}
+func (UnimplementedAndroidServiceServer) UpdateInstance(context.Context, *UpdateInstanceRequest) (*Instance, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateInstance not implemented")
 }
 func (UnimplementedAndroidServiceServer) DeleteInstance(context.Context, *InstanceRequest) (*Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteInstance not implemented")
@@ -228,6 +287,12 @@ func (UnimplementedAndroidServiceServer) PowerDown(context.Context, *InstanceReq
 }
 func (UnimplementedAndroidServiceServer) GetPreview(context.Context, *GetPreviewRequest) (*GetPreviewResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetPreview not implemented")
+}
+func (UnimplementedAndroidServiceServer) GetConsoleLog(context.Context, *ConsoleLogRequest) (*ConsoleLogResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetConsoleLog not implemented")
+}
+func (UnimplementedAndroidServiceServer) StreamConsoleLog(*ConsoleLogRequest, grpc.ServerStreamingServer[ConsoleLogChunk]) error {
+	return status.Errorf(codes.Unimplemented, "method StreamConsoleLog not implemented")
 }
 func (UnimplementedAndroidServiceServer) mustEmbedUnimplementedAndroidServiceServer() {}
 func (UnimplementedAndroidServiceServer) testEmbeddedByValue()                        {}
@@ -300,6 +365,24 @@ func _AndroidService_CreateInstance_Handler(srv interface{}, ctx context.Context
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(AndroidServiceServer).CreateInstance(ctx, req.(*CreateInstanceRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AndroidService_UpdateInstance_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateInstanceRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AndroidServiceServer).UpdateInstance(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AndroidService_UpdateInstance_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AndroidServiceServer).UpdateInstance(ctx, req.(*UpdateInstanceRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -448,6 +531,35 @@ func _AndroidService_GetPreview_Handler(srv interface{}, ctx context.Context, de
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AndroidService_GetConsoleLog_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ConsoleLogRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AndroidServiceServer).GetConsoleLog(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AndroidService_GetConsoleLog_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AndroidServiceServer).GetConsoleLog(ctx, req.(*ConsoleLogRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AndroidService_StreamConsoleLog_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(ConsoleLogRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(AndroidServiceServer).StreamConsoleLog(m, &grpc.GenericServerStream[ConsoleLogRequest, ConsoleLogChunk]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type AndroidService_StreamConsoleLogServer = grpc.ServerStreamingServer[ConsoleLogChunk]
+
 // AndroidService_ServiceDesc is the grpc.ServiceDesc for AndroidService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -466,6 +578,10 @@ var AndroidService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CreateInstance",
 			Handler:    _AndroidService_CreateInstance_Handler,
+		},
+		{
+			MethodName: "UpdateInstance",
+			Handler:    _AndroidService_UpdateInstance_Handler,
 		},
 		{
 			MethodName: "DeleteInstance",
@@ -499,7 +615,17 @@ var AndroidService_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "GetPreview",
 			Handler:    _AndroidService_GetPreview_Handler,
 		},
+		{
+			MethodName: "GetConsoleLog",
+			Handler:    _AndroidService_GetConsoleLog_Handler,
+		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "StreamConsoleLog",
+			Handler:       _AndroidService_StreamConsoleLog_Handler,
+			ServerStreams: true,
+		},
+	},
 	Metadata: "tebox.proto",
 }

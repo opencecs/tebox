@@ -11,6 +11,14 @@ export LD_LIBRARY_PATH="$CIX_GPU_PREFIX/lib/aarch64-linux-gnu${LD_LIBRARY_PATH:+
 export __EGL_VENDOR_LIBRARY_DIRS="$CIX_GPU_COMPAT/share/glvnd/egl_vendor.d"
 export FORCE_VIRGL=1 QEMU_DISPLAY=egl-headless,gl=es
 export TEBOX_EGL_ALLOW_NO_DMABUF_EXPORT=1
+# Full-frame glReadPixels into the console. Cast does not use it, and
+# screendump has its own one-shot readback. Leave it off.
+export TEBOX_EGL_READBACK="${TEBOX_EGL_READBACK:-0}"
+# Cast scales the guest frame into this dma-heap buffer and hands the fd to
+# the encoder (zero-copy). Without it tebox_cast_capture falls back to a
+# per-frame synchronous glReadPixels on the UI thread. /dev/dma_heap/system
+# is required above, so default it here; inherited by tebox-api and ./run.
+export TEBOX_CAST_DMABUF_HEAP="${TEBOX_CAST_DMABUF_HEAP:-/dev/dma_heap/system}"
 # Host CIX userspace for egl-headless / Vulkan. Do NOT default TEBOX_MALI=1:
 # that remaps GPU=gfxstream → mali in boot-qemu. Follow the variant GPU file
 # (gfxstream/virgl/mali); set TEBOX_MALI=1 only for explicit Mali passthrough.

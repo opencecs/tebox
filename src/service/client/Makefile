@@ -8,15 +8,15 @@ UNAME_S := $(shell uname -s)
 all: $(OUT)/tebox-client
 
 deps:
-	cd frontend && npm install
+	cd web && npm install
 	go mod tidy
 
-$(OUT)/tebox-client: $(wildcard *.go) $(wildcard internal/tebox/*.go) $(shell find frontend/src -type f 2>/dev/null) frontend/index.html frontend/package.json wails.json
+$(OUT)/tebox-client: $(wildcard cmd/server/*.go) $(wildcard internal/app/*.go) $(wildcard internal/service/*.go) $(wildcard internal/service/types/*.go) $(wildcard internal/utils/*.go) $(shell find web/src -type f 2>/dev/null) web/index.html web/package.json cmd/server/wails.json
 	@mkdir -p $(OUT)
-	@test -d frontend/node_modules || (cd frontend && npm install)
+	@test -d web/node_modules || (cd web && npm install)
 	go mod tidy
-	wails build -clean -nopackage -o tebox-client
-	cp -f build/bin/tebox-client $(OUT)/tebox-client
+	cd cmd/server && wails build -clean -nopackage -o tebox-client
+	cp -f cmd/server/build/bin/tebox-client $(OUT)/tebox-client
 	@chmod +x $(OUT)/tebox-client
 ifeq ($(UNAME_S),Darwin)
 	@# cp can leave a linker/adhoc signature that macOS AMFI SIGKILLs on launch.
@@ -25,5 +25,5 @@ ifeq ($(UNAME_S),Darwin)
 endif
 
 clean:
-	rm -rf build/bin frontend/dist frontend/node_modules
+	rm -rf cmd/server/build cmd/server/web/dist web/dist web/node_modules
 	rm -f $(OUT)/tebox-client

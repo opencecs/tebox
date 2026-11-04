@@ -23,4 +23,9 @@ bool tebox_cast_enabled(void);
 /* Target GUI update interval in ms (e.g. 16 for ~60 FPS). 0 = leave default. */
 uint64_t tebox_cast_refresh_interval_ms(void);
 
+/* Guest display rotation in degrees (0/90/180/270), reported by the guest over
+ * virtio-serial (cast.rotation next to cast.sock). Defined in egl-headless.c.
+ * Never queries the guest over adb. */
+int tebox_display_rotation(void);
+
 #endif

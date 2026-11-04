@@ -46,7 +46,10 @@ def validate_guest_lock() -> None:
         for name, digest in files.items():
             if not re.fullmatch(r'[0-9a-f]{64}', digest):
                 fail(f'guest.lock.json kernel_files[{name}] digest invalid')
-    require(ROOT / f"src/aosp/{lock.get('variant', '')}/KERNEL", 'variant KERNEL pointer')
+    # The variant tree lives only on GSI/* branches; main ships no src/aosp,
+    # so check the lock's variant KERNEL pointer only where that tree exists.
+    if (ROOT / f"src/aosp/{lock.get('variant', '')}").is_dir():
+        require(ROOT / f"src/aosp/{lock.get('variant', '')}/KERNEL", 'variant KERNEL pointer')
     require(ROOT / f"src/kernel/{lock.get('kernel_id', '')}/FETCHED_FROM.txt",
             'kernel FETCHED_FROM.txt')
 
@@ -166,11 +169,11 @@ def validate_gitignore() -> None:
         if needed not in text:
             fail(f'.gitignore missing rebuildable-image ignore: {needed}')
     guest = ROOT / '.ci/guest.lock.json'
-    if guest.is_file():
-        variant = json.loads(guest.read_text()).get('variant', '')
-        # Full GSI trees live on GSI/* branches. main may only ship thin
-        # KERNEL / cmdline metadata for the products R1P image.
-        aosp = ROOT / f'src/aosp/{variant}'
+    variant = json.loads(guest.read_text()).get('variant', '') if guest.is_file() else ''
+    aosp = ROOT / f'src/aosp/{variant}'
+    # Full GSI trees (and thin KERNEL / cmdline metadata) live on GSI/* branches.
+    # main ships no src/aosp, so validate the variant layout only when present.
+    if variant and aosp.is_dir():
         if (aosp / 'hardware').is_dir():
             require(aosp / 'images/README.md', 'variant images/README.md')
             require(aosp / 'prebuilts/gsi-lib64', 'variant prebuilts/gsi-lib64')

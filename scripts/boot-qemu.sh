@@ -6,11 +6,18 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 VARIANT="${1:?usage: boot-qemu.sh <variant>}"
 AOSP="$ROOT/src/aosp/$VARIANT"
 [[ -d "$AOSP" ]] || { echo "missing $AOSP" >&2; exit 1; }
-[[ -f "$AOSP/KERNEL" ]] || { echo "missing $AOSP/KERNEL" >&2; exit 1; }
 
-KID="$(tr -d '[:space:]' < "$AOSP/KERNEL")"
-K="$ROOT/src/kernel/$KID"
-KERNEL="$K/gki/Image"
+# Kernel Image: KERNEL_IMG env (tebox-api CreateInstance, an absolute path to a
+# caller-supplied Image) wins; else the variant's KERNEL file selects the
+# built-in src/kernel/<id>/gki/Image.
+if [[ -n "${KERNEL_IMG:-}" ]]; then
+  KERNEL="$KERNEL_IMG"
+  KID="custom"
+else
+  [[ -f "$AOSP/KERNEL" ]] || { echo "missing $AOSP/KERNEL (or set KERNEL_IMG)" >&2; exit 1; }
+  KID="$(tr -d '[:space:]' < "$AOSP/KERNEL")"
+  KERNEL="$ROOT/src/kernel/$KID/gki/Image"
+fi
 # SYSTEM_IMG / VENDOR_IMG / INITRD_IMG point an instance at its own images
 # (tebox-api CreateInstance); the variant's images are the default.
 SYSTEM="${SYSTEM_IMG:-$AOSP/images/system.img}"
@@ -96,20 +103,27 @@ esac
 CPU=host
 [[ "$ACCEL" != tcg ]] || CPU=max
 
-CMDLINE_FILE="${CMDLINE_FILE:-$AOSP/qemu/cmdline/boot}"
-[[ -f "$CMDLINE_FILE" ]] || { echo "missing cmdline file: $CMDLINE_FILE" >&2; exit 1; }
-
+# Kernel cmdline: TEBOX_CMDLINE env (tebox-api, whitespace-separated tokens)
+# wins; else the variant's cmdline file. Either way QEMU_EXTRA_APPEND is still
+# appended below.
 APPEND=()
-while IFS= read -r line || [[ -n "$line" ]]; do
-  # trim
-  line="${line#"${line%%[![:space:]]*}"}"
-  line="${line%"${line##*[![:space:]]}"}"
-  [[ -z "$line" || "$line" == \#* ]] && continue
-  # allow multiple tokens on one line
+if [[ -n "${TEBOX_CMDLINE:-}" ]]; then
   # shellcheck disable=SC2206
-  APPEND+=($line)
-done < "$CMDLINE_FILE"
-((${#APPEND[@]} > 0)) || { echo "empty cmdline in $CMDLINE_FILE" >&2; exit 1; }
+  APPEND+=($TEBOX_CMDLINE)
+else
+  CMDLINE_FILE="${CMDLINE_FILE:-$AOSP/qemu/cmdline/boot}"
+  [[ -f "$CMDLINE_FILE" ]] || { echo "missing cmdline file: $CMDLINE_FILE (or set TEBOX_CMDLINE)" >&2; exit 1; }
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    # trim
+    line="${line#"${line%%[![:space:]]*}"}"
+    line="${line%"${line##*[![:space:]]}"}"
+    [[ -z "$line" || "$line" == \#* ]] && continue
+    # allow multiple tokens on one line
+    # shellcheck disable=SC2206
+    APPEND+=($line)
+  done < "$CMDLINE_FILE"
+fi
+((${#APPEND[@]} > 0)) || { echo "empty cmdline (set TEBOX_CMDLINE or $AOSP/qemu/cmdline/boot)" >&2; exit 1; }
 
 EXTRA=()
 EXTRA+=(-initrd "$INITRD")
@@ -170,7 +184,8 @@ fi
 # gfxstream/virgl for one boot; mali ignores FORCE_RUTABAGA.
 GPU_MALI=0
 if [[ -z "${FORCE_RUTABAGA:-}" ]]; then
-  GPU_BACKEND="$(tr -d '[:space:]' < "$AOSP/GPU" 2>/dev/null || echo gfxstream)"
+  # TEBOX_GPU env (tebox-api) wins; else the variant's GPU file; else gfxstream.
+  GPU_BACKEND="${TEBOX_GPU:-$(tr -d '[:space:]' < "$AOSP/GPU" 2>/dev/null || echo gfxstream)}"
   # R1P / TEBOX_MALI: guest drives the real Mali; never stay on gfxstream.
   if [[ "${TEBOX_MALI:-0}" == 1 && "$HOST_OS" == linux ]]; then
     case "${GPU_BACKEND:-gfxstream}" in
@@ -242,8 +257,10 @@ elif [[ "$FORCE_RUTABAGA" == 1 ]]; then
     if [[ -z "${GFXSTREAM_DMABUF_HEAP+x}" && -w /dev/dma_heap/system ]]; then
       export GFXSTREAM_DMABUF_HEAP=/dev/dma_heap/system
     fi
-    # Cast: the GPU scales into a dma-buf the VPU encodes in place, and the
-    # headless display skips its full-frame readback (nothing consumes it).
+    # Cast scales on the GPU. Per-frame CPU readback stays off; QMP
+    # screendump asks egl-headless for one readback of the GL scanout
+    # (dma-buf scanout has no console surface, so leaving this at 0 does
+    # not by itself make GetPreview work).
     if [[ -z "${TEBOX_CAST_DMABUF_HEAP+x}" && -w /dev/dma_heap/system ]]; then
       export TEBOX_CAST_DMABUF_HEAP=/dev/dma_heap/system
     fi
@@ -265,6 +282,15 @@ else
     androidboot.hwui.renderer="${HWUI_RENDERER:-skiagl}"
     androidboot.hardware.gralloc=stub
     androidboot.tebox.video_encode=1 androidboot.tebox.video_decode=1)
+  if [[ "$HOST_OS" == linux ]]; then
+    # Cast scales into a dma-heap buffer the encoder reads in place; without
+    # this the GL path falls back to a per-frame synchronous glReadPixels on
+    # the UI thread (CIX Mali egl-headless, virtio-gpu-gl).
+    if [[ -z "${TEBOX_CAST_DMABUF_HEAP+x}" && -w /dev/dma_heap/system ]]; then
+      export TEBOX_CAST_DMABUF_HEAP=/dev/dma_heap/system
+    fi
+    export TEBOX_EGL_READBACK="${TEBOX_EGL_READBACK:-0}"
+  fi
   echo "gpu:     virgl (Mesa + stub gralloc + c2.tebox; from GPU file / FORCE_RUTABAGA=0)"
 fi
 # Display refresh rate (graphics HAL vsync). It caps every app's frame rate,
@@ -330,6 +356,16 @@ if [[ "${TEBOX_CAST:-0}" == 1 ]]; then
     EXTRA+=(-chardev "socket,id=${sock/-/_},path=$MEDIA_DIR/$sock.sock,server=on,wait=off"
       -device "virtserialport,bus=media.0,chardev=${sock/-/_},name=${port#*:}")
   done
+  # tebox control bus (guest <-> host leg): a dedicated virtio device, not a
+  # virtio-serial port, so the guest tebox_ctl.ko can route framed teboxctl
+  # messages by channel between guest processes AND the host. tebox-api reads
+  # ctl.sock (rotation = channel 1 today; more channels later). QEMU is just
+  # the byte pipe; the API never queries the guest over adb.
+  rm -f "$MEDIA_DIR/ctl.sock"
+  # disable-legacy=on: the arm virt machine is modern-only; a virtio-pci device
+  # left at legacy+modern fails to realize here (as tebox-v4l2/mali also do).
+  EXTRA+=(-chardev "socket,id=teboxctl,path=$MEDIA_DIR/ctl.sock,server=on,wait=off"
+    -device "tebox-ctl-pci,addr=0x13,disable-legacy=on,disable-modern=off,chardev=teboxctl")
 fi
 
 # tebox (local, Linux/R1P): MVX V4L2 passthrough device so the guest's stock

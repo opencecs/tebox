@@ -176,6 +176,22 @@ void qemu_console_co_wait_update(QemuConsole *con)
 
 }
 
+pixman_image_t *qemu_console_gl_readback(QemuConsole *con)
+{
+    DisplayChangeListener *dcl;
+
+    if (!con || !con->ds) {
+        return NULL;
+    }
+    QLIST_FOREACH(dcl, &con->ds->listeners, next) {
+        if (dcl->con != con || !dcl->ops->dpy_gl_readback) {
+            continue;
+        }
+        return dcl->ops->dpy_gl_readback(dcl);
+    }
+    return NULL;
+}
+
 static void console_hw_gl_unblock_timer(void *opaque)
 {
     warn_report("console: no gl-unblock within one second");

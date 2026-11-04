@@ -2,7 +2,7 @@ package utils
 
 import (
 	"tebox-api/internal/constants"
-	"tebox-api/internal/tebox/types"
+	"tebox-api/internal/service/types"
 )
 
 // ReplyOK is the control handshake / success ack.

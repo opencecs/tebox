@@ -164,7 +164,16 @@ type CreateInstanceRequest struct {
 	// Instance directory on the API host: userdata.img, QMP/cast
 	// sockets. Absolute, absent or empty, at most 88 bytes (Unix socket
 	// paths); removed by DeleteInstance. Empty: <data root>/instances/<id>.
-	InstanceDir   string `protobuf:"bytes,8,opt,name=instance_dir,json=instanceDir,proto3" json:"instance_dir,omitempty"`
+	InstanceDir string `protobuf:"bytes,8,opt,name=instance_dir,json=instanceDir,proto3" json:"instance_dir,omitempty"`
+	// Boot overrides. Empty falls back to the variant's files
+	// (src/aosp/<variant>/qemu/cmdline/boot, GPU, KERNEL), so the image need
+	// not bake those files in.
+	Cmdline []string `protobuf:"bytes,9,rep,name=cmdline,proto3" json:"cmdline,omitempty"` // kernel cmdline tokens (one per element)
+	Gpu     string   `protobuf:"bytes,10,opt,name=gpu,proto3" json:"gpu,omitempty"`        // gfxstream | virgl | mali
+	Kernel  string   `protobuf:"bytes,11,opt,name=kernel,proto3" json:"kernel,omitempty"`  // absolute path to a kernel Image; empty = built-in
+	// Extra cmdline tokens appended on top of cmdline (or the variant default
+	// when cmdline is empty), not replacing it. For custom-kernel tweaks.
+	Append        []string `protobuf:"bytes,12,rep,name=append,proto3" json:"append,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -253,6 +262,34 @@ func (x *CreateInstanceRequest) GetInstanceDir() string {
 		return x.InstanceDir
 	}
 	return ""
+}
+
+func (x *CreateInstanceRequest) GetCmdline() []string {
+	if x != nil {
+		return x.Cmdline
+	}
+	return nil
+}
+
+func (x *CreateInstanceRequest) GetGpu() string {
+	if x != nil {
+		return x.Gpu
+	}
+	return ""
+}
+
+func (x *CreateInstanceRequest) GetKernel() string {
+	if x != nil {
+		return x.Kernel
+	}
+	return ""
+}
+
+func (x *CreateInstanceRequest) GetAppend() []string {
+	if x != nil {
+		return x.Append
+	}
+	return nil
 }
 
 type InstanceRequest struct {
@@ -455,6 +492,326 @@ func (x *KeyRequest) GetKey() string {
 	return ""
 }
 
+// A repeated-string value wrapped so absence (null) differs from an empty
+// list: unset leaves the field unchanged, set (even empty) replaces it.
+type StringList struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Values        []string               `protobuf:"bytes,1,rep,name=values,proto3" json:"values,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StringList) Reset() {
+	*x = StringList{}
+	mi := &file_tebox_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StringList) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StringList) ProtoMessage() {}
+
+func (x *StringList) ProtoReflect() protoreflect.Message {
+	mi := &file_tebox_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StringList.ProtoReflect.Descriptor instead.
+func (*StringList) Descriptor() ([]byte, []int) {
+	return file_tebox_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *StringList) GetValues() []string {
+	if x != nil {
+		return x.Values
+	}
+	return nil
+}
+
+// Only the set fields change; the rest keep their current value. Applied on
+// the next StartInstance.
+type UpdateInstanceRequest struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Id             string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name           *string                `protobuf:"bytes,2,opt,name=name,proto3,oneof" json:"name,omitempty"`
+	CpuCores       *int32                 `protobuf:"varint,3,opt,name=cpu_cores,json=cpuCores,proto3,oneof" json:"cpu_cores,omitempty"`
+	MemoryMb       *int32                 `protobuf:"varint,4,opt,name=memory_mb,json=memoryMb,proto3,oneof" json:"memory_mb,omitempty"`
+	SystemImage    *string                `protobuf:"bytes,5,opt,name=system_image,json=systemImage,proto3,oneof" json:"system_image,omitempty"` // empty string resets to variant default
+	VendorImage    *string                `protobuf:"bytes,6,opt,name=vendor_image,json=vendorImage,proto3,oneof" json:"vendor_image,omitempty"`
+	InitramfsImage *string                `protobuf:"bytes,7,opt,name=initramfs_image,json=initramfsImage,proto3,oneof" json:"initramfs_image,omitempty"`
+	Cmdline        *StringList            `protobuf:"bytes,8,opt,name=cmdline,proto3" json:"cmdline,omitempty"`
+	Gpu            *string                `protobuf:"bytes,9,opt,name=gpu,proto3,oneof" json:"gpu,omitempty"`
+	Kernel         *string                `protobuf:"bytes,10,opt,name=kernel,proto3,oneof" json:"kernel,omitempty"`
+	Append         *StringList            `protobuf:"bytes,11,opt,name=append,proto3" json:"append,omitempty"`
+	Profile        *DeviceProfile         `protobuf:"bytes,12,opt,name=profile,proto3" json:"profile,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *UpdateInstanceRequest) Reset() {
+	*x = UpdateInstanceRequest{}
+	mi := &file_tebox_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateInstanceRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateInstanceRequest) ProtoMessage() {}
+
+func (x *UpdateInstanceRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_tebox_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateInstanceRequest.ProtoReflect.Descriptor instead.
+func (*UpdateInstanceRequest) Descriptor() ([]byte, []int) {
+	return file_tebox_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *UpdateInstanceRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *UpdateInstanceRequest) GetName() string {
+	if x != nil && x.Name != nil {
+		return *x.Name
+	}
+	return ""
+}
+
+func (x *UpdateInstanceRequest) GetCpuCores() int32 {
+	if x != nil && x.CpuCores != nil {
+		return *x.CpuCores
+	}
+	return 0
+}
+
+func (x *UpdateInstanceRequest) GetMemoryMb() int32 {
+	if x != nil && x.MemoryMb != nil {
+		return *x.MemoryMb
+	}
+	return 0
+}
+
+func (x *UpdateInstanceRequest) GetSystemImage() string {
+	if x != nil && x.SystemImage != nil {
+		return *x.SystemImage
+	}
+	return ""
+}
+
+func (x *UpdateInstanceRequest) GetVendorImage() string {
+	if x != nil && x.VendorImage != nil {
+		return *x.VendorImage
+	}
+	return ""
+}
+
+func (x *UpdateInstanceRequest) GetInitramfsImage() string {
+	if x != nil && x.InitramfsImage != nil {
+		return *x.InitramfsImage
+	}
+	return ""
+}
+
+func (x *UpdateInstanceRequest) GetCmdline() *StringList {
+	if x != nil {
+		return x.Cmdline
+	}
+	return nil
+}
+
+func (x *UpdateInstanceRequest) GetGpu() string {
+	if x != nil && x.Gpu != nil {
+		return *x.Gpu
+	}
+	return ""
+}
+
+func (x *UpdateInstanceRequest) GetKernel() string {
+	if x != nil && x.Kernel != nil {
+		return *x.Kernel
+	}
+	return ""
+}
+
+func (x *UpdateInstanceRequest) GetAppend() *StringList {
+	if x != nil {
+		return x.Append
+	}
+	return nil
+}
+
+func (x *UpdateInstanceRequest) GetProfile() *DeviceProfile {
+	if x != nil {
+		return x.Profile
+	}
+	return nil
+}
+
+type ConsoleLogRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	MaxBytes      int32                  `protobuf:"varint,2,opt,name=max_bytes,json=maxBytes,proto3" json:"max_bytes,omitempty"` // tail size; 0 = default (64 KiB), capped at 4 MiB
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ConsoleLogRequest) Reset() {
+	*x = ConsoleLogRequest{}
+	mi := &file_tebox_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ConsoleLogRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ConsoleLogRequest) ProtoMessage() {}
+
+func (x *ConsoleLogRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_tebox_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ConsoleLogRequest.ProtoReflect.Descriptor instead.
+func (*ConsoleLogRequest) Descriptor() ([]byte, []int) {
+	return file_tebox_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *ConsoleLogRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *ConsoleLogRequest) GetMaxBytes() int32 {
+	if x != nil {
+		return x.MaxBytes
+	}
+	return 0
+}
+
+type ConsoleLogResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Data          []byte                 `protobuf:"bytes,1,opt,name=data,proto3" json:"data,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ConsoleLogResponse) Reset() {
+	*x = ConsoleLogResponse{}
+	mi := &file_tebox_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ConsoleLogResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ConsoleLogResponse) ProtoMessage() {}
+
+func (x *ConsoleLogResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_tebox_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ConsoleLogResponse.ProtoReflect.Descriptor instead.
+func (*ConsoleLogResponse) Descriptor() ([]byte, []int) {
+	return file_tebox_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *ConsoleLogResponse) GetData() []byte {
+	if x != nil {
+		return x.Data
+	}
+	return nil
+}
+
+type ConsoleLogChunk struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Data          []byte                 `protobuf:"bytes,1,opt,name=data,proto3" json:"data,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ConsoleLogChunk) Reset() {
+	*x = ConsoleLogChunk{}
+	mi := &file_tebox_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ConsoleLogChunk) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ConsoleLogChunk) ProtoMessage() {}
+
+func (x *ConsoleLogChunk) ProtoReflect() protoreflect.Message {
+	mi := &file_tebox_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ConsoleLogChunk.ProtoReflect.Descriptor instead.
+func (*ConsoleLogChunk) Descriptor() ([]byte, []int) {
+	return file_tebox_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *ConsoleLogChunk) GetData() []byte {
+	if x != nil {
+		return x.Data
+	}
+	return nil
+}
+
 type ListInstancesResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Instances     []*Instance            `protobuf:"bytes,1,rep,name=instances,proto3" json:"instances,omitempty"`
@@ -464,7 +821,7 @@ type ListInstancesResponse struct {
 
 func (x *ListInstancesResponse) Reset() {
 	*x = ListInstancesResponse{}
-	mi := &file_tebox_proto_msgTypes[7]
+	mi := &file_tebox_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -476,7 +833,7 @@ func (x *ListInstancesResponse) String() string {
 func (*ListInstancesResponse) ProtoMessage() {}
 
 func (x *ListInstancesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_tebox_proto_msgTypes[7]
+	mi := &file_tebox_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -489,7 +846,7 @@ func (x *ListInstancesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListInstancesResponse.ProtoReflect.Descriptor instead.
 func (*ListInstancesResponse) Descriptor() ([]byte, []int) {
-	return file_tebox_proto_rawDescGZIP(), []int{7}
+	return file_tebox_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *ListInstancesResponse) GetInstances() []*Instance {
@@ -503,7 +860,6 @@ type Instance struct {
 	state    protoimpl.MessageState `protogen:"open.v1"`
 	Id       string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	Name     string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	Variant  string                 `protobuf:"bytes,3,opt,name=variant,proto3" json:"variant,omitempty"`
 	Dir      string                 `protobuf:"bytes,4,opt,name=dir,proto3" json:"dir,omitempty"` // instance directory (userdata, sockets)
 	AdbPort  int32                  `protobuf:"varint,5,opt,name=adb_port,json=adbPort,proto3" json:"adb_port,omitempty"`
 	Pid      int32                  `protobuf:"varint,6,opt,name=pid,proto3" json:"pid,omitempty"`
@@ -523,13 +879,19 @@ type Instance struct {
 	VendorImage    string `protobuf:"bytes,17,opt,name=vendor_image,json=vendorImage,proto3" json:"vendor_image,omitempty"`
 	InitramfsImage string `protobuf:"bytes,18,opt,name=initramfs_image,json=initramfsImage,proto3" json:"initramfs_image,omitempty"`
 	DiskFreeMb     int32  `protobuf:"varint,19,opt,name=disk_free_mb,json=diskFreeMb,proto3" json:"disk_free_mb,omitempty"` // max(0, disk_mb - disk_used_mb)
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// Boot overrides set at creation; empty cmdline means the API's fixed
+	// default, empty gpu / kernel the variant's files.
+	Cmdline       []string `protobuf:"bytes,20,rep,name=cmdline,proto3" json:"cmdline,omitempty"`
+	Gpu           string   `protobuf:"bytes,21,opt,name=gpu,proto3" json:"gpu,omitempty"`
+	Kernel        string   `protobuf:"bytes,22,opt,name=kernel,proto3" json:"kernel,omitempty"`
+	Append        []string `protobuf:"bytes,23,rep,name=append,proto3" json:"append,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Instance) Reset() {
 	*x = Instance{}
-	mi := &file_tebox_proto_msgTypes[8]
+	mi := &file_tebox_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -541,7 +903,7 @@ func (x *Instance) String() string {
 func (*Instance) ProtoMessage() {}
 
 func (x *Instance) ProtoReflect() protoreflect.Message {
-	mi := &file_tebox_proto_msgTypes[8]
+	mi := &file_tebox_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -554,7 +916,7 @@ func (x *Instance) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Instance.ProtoReflect.Descriptor instead.
 func (*Instance) Descriptor() ([]byte, []int) {
-	return file_tebox_proto_rawDescGZIP(), []int{8}
+	return file_tebox_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *Instance) GetId() string {
@@ -567,13 +929,6 @@ func (x *Instance) GetId() string {
 func (x *Instance) GetName() string {
 	if x != nil {
 		return x.Name
-	}
-	return ""
-}
-
-func (x *Instance) GetVariant() string {
-	if x != nil {
-		return x.Variant
 	}
 	return ""
 }
@@ -690,6 +1045,34 @@ func (x *Instance) GetDiskFreeMb() int32 {
 	return 0
 }
 
+func (x *Instance) GetCmdline() []string {
+	if x != nil {
+		return x.Cmdline
+	}
+	return nil
+}
+
+func (x *Instance) GetGpu() string {
+	if x != nil {
+		return x.Gpu
+	}
+	return ""
+}
+
+func (x *Instance) GetKernel() string {
+	if x != nil {
+		return x.Kernel
+	}
+	return ""
+}
+
+func (x *Instance) GetAppend() []string {
+	if x != nil {
+		return x.Append
+	}
+	return nil
+}
+
 type GetPreviewRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	Id    string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -706,7 +1089,7 @@ type GetPreviewRequest struct {
 
 func (x *GetPreviewRequest) Reset() {
 	*x = GetPreviewRequest{}
-	mi := &file_tebox_proto_msgTypes[9]
+	mi := &file_tebox_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -718,7 +1101,7 @@ func (x *GetPreviewRequest) String() string {
 func (*GetPreviewRequest) ProtoMessage() {}
 
 func (x *GetPreviewRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_tebox_proto_msgTypes[9]
+	mi := &file_tebox_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -731,7 +1114,7 @@ func (x *GetPreviewRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPreviewRequest.ProtoReflect.Descriptor instead.
 func (*GetPreviewRequest) Descriptor() ([]byte, []int) {
-	return file_tebox_proto_rawDescGZIP(), []int{9}
+	return file_tebox_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *GetPreviewRequest) GetId() string {
@@ -775,7 +1158,7 @@ type GetPreviewResponse struct {
 
 func (x *GetPreviewResponse) Reset() {
 	*x = GetPreviewResponse{}
-	mi := &file_tebox_proto_msgTypes[10]
+	mi := &file_tebox_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -787,7 +1170,7 @@ func (x *GetPreviewResponse) String() string {
 func (*GetPreviewResponse) ProtoMessage() {}
 
 func (x *GetPreviewResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_tebox_proto_msgTypes[10]
+	mi := &file_tebox_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -800,7 +1183,7 @@ func (x *GetPreviewResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPreviewResponse.ProtoReflect.Descriptor instead.
 func (*GetPreviewResponse) Descriptor() ([]byte, []int) {
-	return file_tebox_proto_rawDescGZIP(), []int{10}
+	return file_tebox_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *GetPreviewResponse) GetImage() []byte {
@@ -854,7 +1237,7 @@ type DeviceProfile struct {
 
 func (x *DeviceProfile) Reset() {
 	*x = DeviceProfile{}
-	mi := &file_tebox_proto_msgTypes[11]
+	mi := &file_tebox_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -866,7 +1249,7 @@ func (x *DeviceProfile) String() string {
 func (*DeviceProfile) ProtoMessage() {}
 
 func (x *DeviceProfile) ProtoReflect() protoreflect.Message {
-	mi := &file_tebox_proto_msgTypes[11]
+	mi := &file_tebox_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -879,7 +1262,7 @@ func (x *DeviceProfile) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeviceProfile.ProtoReflect.Descriptor instead.
 func (*DeviceProfile) Descriptor() ([]byte, []int) {
-	return file_tebox_proto_rawDescGZIP(), []int{11}
+	return file_tebox_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *DeviceProfile) GetLatitude() float64 {
@@ -944,7 +1327,7 @@ const file_tebox_proto_rawDesc = "" +
 	"\n" +
 	"\vtebox.proto\x12\btebox.v1\"\a\n" +
 	"\x05Empty\"\x16\n" +
-	"\x14ListInstancesRequest\"\x90\x02\n" +
+	"\x14ListInstancesRequest\"\xec\x02\n" +
 	"\x15CreateInstanceRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x1b\n" +
 	"\tcpu_cores\x18\x02 \x01(\x05R\bcpuCores\x12\x1b\n" +
@@ -953,7 +1336,12 @@ const file_tebox_proto_rawDesc = "" +
 	"\fsystem_image\x18\x05 \x01(\tR\vsystemImage\x12!\n" +
 	"\fvendor_image\x18\x06 \x01(\tR\vvendorImage\x12'\n" +
 	"\x0finitramfs_image\x18\a \x01(\tR\x0einitramfsImage\x12!\n" +
-	"\finstance_dir\x18\b \x01(\tR\vinstanceDir\"!\n" +
+	"\finstance_dir\x18\b \x01(\tR\vinstanceDir\x12\x18\n" +
+	"\acmdline\x18\t \x03(\tR\acmdline\x12\x10\n" +
+	"\x03gpu\x18\n" +
+	" \x01(\tR\x03gpu\x12\x16\n" +
+	"\x06kernel\x18\v \x01(\tR\x06kernel\x12\x16\n" +
+	"\x06append\x18\f \x03(\tR\x06append\"!\n" +
 	"\x0fInstanceRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"C\n" +
 	"\x14ResetInstanceRequest\x12\x0e\n" +
@@ -965,13 +1353,46 @@ const file_tebox_proto_rawDesc = "" +
 	"\n" +
 	"KeyRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x10\n" +
-	"\x03key\x18\x02 \x01(\tR\x03key\"I\n" +
+	"\x03key\x18\x02 \x01(\tR\x03key\"$\n" +
+	"\n" +
+	"StringList\x12\x16\n" +
+	"\x06values\x18\x01 \x03(\tR\x06values\"\xb5\x04\n" +
+	"\x15UpdateInstanceRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n" +
+	"\x04name\x18\x02 \x01(\tH\x00R\x04name\x88\x01\x01\x12 \n" +
+	"\tcpu_cores\x18\x03 \x01(\x05H\x01R\bcpuCores\x88\x01\x01\x12 \n" +
+	"\tmemory_mb\x18\x04 \x01(\x05H\x02R\bmemoryMb\x88\x01\x01\x12&\n" +
+	"\fsystem_image\x18\x05 \x01(\tH\x03R\vsystemImage\x88\x01\x01\x12&\n" +
+	"\fvendor_image\x18\x06 \x01(\tH\x04R\vvendorImage\x88\x01\x01\x12,\n" +
+	"\x0finitramfs_image\x18\a \x01(\tH\x05R\x0einitramfsImage\x88\x01\x01\x12.\n" +
+	"\acmdline\x18\b \x01(\v2\x14.tebox.v1.StringListR\acmdline\x12\x15\n" +
+	"\x03gpu\x18\t \x01(\tH\x06R\x03gpu\x88\x01\x01\x12\x1b\n" +
+	"\x06kernel\x18\n" +
+	" \x01(\tH\aR\x06kernel\x88\x01\x01\x12,\n" +
+	"\x06append\x18\v \x01(\v2\x14.tebox.v1.StringListR\x06append\x121\n" +
+	"\aprofile\x18\f \x01(\v2\x17.tebox.v1.DeviceProfileR\aprofileB\a\n" +
+	"\x05_nameB\f\n" +
+	"\n" +
+	"_cpu_coresB\f\n" +
+	"\n" +
+	"_memory_mbB\x0f\n" +
+	"\r_system_imageB\x0f\n" +
+	"\r_vendor_imageB\x12\n" +
+	"\x10_initramfs_imageB\x06\n" +
+	"\x04_gpuB\t\n" +
+	"\a_kernel\"@\n" +
+	"\x11ConsoleLogRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
+	"\tmax_bytes\x18\x02 \x01(\x05R\bmaxBytes\"(\n" +
+	"\x12ConsoleLogResponse\x12\x12\n" +
+	"\x04data\x18\x01 \x01(\fR\x04data\"%\n" +
+	"\x0fConsoleLogChunk\x12\x12\n" +
+	"\x04data\x18\x01 \x01(\fR\x04data\"I\n" +
 	"\x15ListInstancesResponse\x120\n" +
-	"\tinstances\x18\x01 \x03(\v2\x12.tebox.v1.InstanceR\tinstances\"\xc9\x04\n" +
+	"\tinstances\x18\x01 \x03(\v2\x12.tebox.v1.InstanceR\tinstances\"\x9a\x05\n" +
 	"\bInstance\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
-	"\x04name\x18\x02 \x01(\tR\x04name\x12\x18\n" +
-	"\avariant\x18\x03 \x01(\tR\avariant\x12\x10\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x10\n" +
 	"\x03dir\x18\x04 \x01(\tR\x03dir\x12\x19\n" +
 	"\badb_port\x18\x05 \x01(\x05R\aadbPort\x12\x10\n" +
 	"\x03pid\x18\x06 \x01(\x05R\x03pid\x12\x18\n" +
@@ -990,7 +1411,11 @@ const file_tebox_proto_rawDesc = "" +
 	"\fvendor_image\x18\x11 \x01(\tR\vvendorImage\x12'\n" +
 	"\x0finitramfs_image\x18\x12 \x01(\tR\x0einitramfsImage\x12 \n" +
 	"\fdisk_free_mb\x18\x13 \x01(\x05R\n" +
-	"diskFreeMb\"i\n" +
+	"diskFreeMb\x12\x18\n" +
+	"\acmdline\x18\x14 \x03(\tR\acmdline\x12\x10\n" +
+	"\x03gpu\x18\x15 \x01(\tR\x03gpu\x12\x16\n" +
+	"\x06kernel\x18\x16 \x01(\tR\x06kernel\x12\x16\n" +
+	"\x06append\x18\x17 \x03(\tR\x06appendJ\x04\b\x03\x10\x04R\avariant\"i\n" +
 	"\x11GetPreviewRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04size\x18\x02 \x01(\x05R\x04size\x12\x16\n" +
@@ -1016,11 +1441,12 @@ const file_tebox_proto_rawDesc = "" +
 	"\x16INSTANCE_STATE_STOPPED\x10\x01\x12\x1b\n" +
 	"\x17INSTANCE_STATE_STARTING\x10\x02\x12\x1a\n" +
 	"\x16INSTANCE_STATE_RUNNING\x10\x03\x12\x1b\n" +
-	"\x17INSTANCE_STATE_STOPPING\x10\x042\xde\x05\n" +
+	"\x17INSTANCE_STATE_STOPPING\x10\x042\xbf\a\n" +
 	"\x0eAndroidService\x12P\n" +
 	"\rListInstances\x12\x1e.tebox.v1.ListInstancesRequest\x1a\x1f.tebox.v1.ListInstancesResponse\x12<\n" +
 	"\vGetInstance\x12\x19.tebox.v1.InstanceRequest\x1a\x12.tebox.v1.Instance\x12E\n" +
-	"\x0eCreateInstance\x12\x1f.tebox.v1.CreateInstanceRequest\x1a\x12.tebox.v1.Instance\x12<\n" +
+	"\x0eCreateInstance\x12\x1f.tebox.v1.CreateInstanceRequest\x1a\x12.tebox.v1.Instance\x12E\n" +
+	"\x0eUpdateInstance\x12\x1f.tebox.v1.UpdateInstanceRequest\x1a\x12.tebox.v1.Instance\x12<\n" +
 	"\x0eDeleteInstance\x12\x19.tebox.v1.InstanceRequest\x1a\x0f.tebox.v1.Empty\x12;\n" +
 	"\rStartInstance\x12\x19.tebox.v1.InstanceRequest\x1a\x0f.tebox.v1.Empty\x12:\n" +
 	"\fStopInstance\x12\x19.tebox.v1.InstanceRequest\x1a\x0f.tebox.v1.Empty\x12@\n" +
@@ -1029,7 +1455,9 @@ const file_tebox_proto_rawDesc = "" +
 	"\aSendKey\x12\x14.tebox.v1.KeyRequest\x1a\x0f.tebox.v1.Empty\x127\n" +
 	"\tPowerDown\x12\x19.tebox.v1.InstanceRequest\x1a\x0f.tebox.v1.Empty\x12G\n" +
 	"\n" +
-	"GetPreview\x12\x1b.tebox.v1.GetPreviewRequest\x1a\x1c.tebox.v1.GetPreviewResponseB\x1dZ\x1btebox-client/api/v1;teboxv1b\x06proto3"
+	"GetPreview\x12\x1b.tebox.v1.GetPreviewRequest\x1a\x1c.tebox.v1.GetPreviewResponse\x12J\n" +
+	"\rGetConsoleLog\x12\x1b.tebox.v1.ConsoleLogRequest\x1a\x1c.tebox.v1.ConsoleLogResponse\x12L\n" +
+	"\x10StreamConsoleLog\x12\x1b.tebox.v1.ConsoleLogRequest\x1a\x19.tebox.v1.ConsoleLogChunk0\x01B\x1dZ\x1btebox-client/api/v1;teboxv1b\x06proto3"
 
 var (
 	file_tebox_proto_rawDescOnce sync.Once
@@ -1044,7 +1472,7 @@ func file_tebox_proto_rawDescGZIP() []byte {
 }
 
 var file_tebox_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_tebox_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
+var file_tebox_proto_msgTypes = make([]protoimpl.MessageInfo, 17)
 var file_tebox_proto_goTypes = []any{
 	(InstanceState)(0),               // 0: tebox.v1.InstanceState
 	(*Empty)(nil),                    // 1: tebox.v1.Empty
@@ -1054,44 +1482,58 @@ var file_tebox_proto_goTypes = []any{
 	(*ResetInstanceRequest)(nil),     // 5: tebox.v1.ResetInstanceRequest
 	(*ConfigureInstanceRequest)(nil), // 6: tebox.v1.ConfigureInstanceRequest
 	(*KeyRequest)(nil),               // 7: tebox.v1.KeyRequest
-	(*ListInstancesResponse)(nil),    // 8: tebox.v1.ListInstancesResponse
-	(*Instance)(nil),                 // 9: tebox.v1.Instance
-	(*GetPreviewRequest)(nil),        // 10: tebox.v1.GetPreviewRequest
-	(*GetPreviewResponse)(nil),       // 11: tebox.v1.GetPreviewResponse
-	(*DeviceProfile)(nil),            // 12: tebox.v1.DeviceProfile
+	(*StringList)(nil),               // 8: tebox.v1.StringList
+	(*UpdateInstanceRequest)(nil),    // 9: tebox.v1.UpdateInstanceRequest
+	(*ConsoleLogRequest)(nil),        // 10: tebox.v1.ConsoleLogRequest
+	(*ConsoleLogResponse)(nil),       // 11: tebox.v1.ConsoleLogResponse
+	(*ConsoleLogChunk)(nil),          // 12: tebox.v1.ConsoleLogChunk
+	(*ListInstancesResponse)(nil),    // 13: tebox.v1.ListInstancesResponse
+	(*Instance)(nil),                 // 14: tebox.v1.Instance
+	(*GetPreviewRequest)(nil),        // 15: tebox.v1.GetPreviewRequest
+	(*GetPreviewResponse)(nil),       // 16: tebox.v1.GetPreviewResponse
+	(*DeviceProfile)(nil),            // 17: tebox.v1.DeviceProfile
 }
 var file_tebox_proto_depIdxs = []int32{
-	12, // 0: tebox.v1.ConfigureInstanceRequest.profile:type_name -> tebox.v1.DeviceProfile
-	9,  // 1: tebox.v1.ListInstancesResponse.instances:type_name -> tebox.v1.Instance
-	12, // 2: tebox.v1.Instance.profile:type_name -> tebox.v1.DeviceProfile
-	0,  // 3: tebox.v1.Instance.state:type_name -> tebox.v1.InstanceState
-	2,  // 4: tebox.v1.AndroidService.ListInstances:input_type -> tebox.v1.ListInstancesRequest
-	4,  // 5: tebox.v1.AndroidService.GetInstance:input_type -> tebox.v1.InstanceRequest
-	3,  // 6: tebox.v1.AndroidService.CreateInstance:input_type -> tebox.v1.CreateInstanceRequest
-	4,  // 7: tebox.v1.AndroidService.DeleteInstance:input_type -> tebox.v1.InstanceRequest
-	4,  // 8: tebox.v1.AndroidService.StartInstance:input_type -> tebox.v1.InstanceRequest
-	4,  // 9: tebox.v1.AndroidService.StopInstance:input_type -> tebox.v1.InstanceRequest
-	5,  // 10: tebox.v1.AndroidService.ResetInstance:input_type -> tebox.v1.ResetInstanceRequest
-	6,  // 11: tebox.v1.AndroidService.ConfigureInstance:input_type -> tebox.v1.ConfigureInstanceRequest
-	7,  // 12: tebox.v1.AndroidService.SendKey:input_type -> tebox.v1.KeyRequest
-	4,  // 13: tebox.v1.AndroidService.PowerDown:input_type -> tebox.v1.InstanceRequest
-	10, // 14: tebox.v1.AndroidService.GetPreview:input_type -> tebox.v1.GetPreviewRequest
-	8,  // 15: tebox.v1.AndroidService.ListInstances:output_type -> tebox.v1.ListInstancesResponse
-	9,  // 16: tebox.v1.AndroidService.GetInstance:output_type -> tebox.v1.Instance
-	9,  // 17: tebox.v1.AndroidService.CreateInstance:output_type -> tebox.v1.Instance
-	1,  // 18: tebox.v1.AndroidService.DeleteInstance:output_type -> tebox.v1.Empty
-	1,  // 19: tebox.v1.AndroidService.StartInstance:output_type -> tebox.v1.Empty
-	1,  // 20: tebox.v1.AndroidService.StopInstance:output_type -> tebox.v1.Empty
-	1,  // 21: tebox.v1.AndroidService.ResetInstance:output_type -> tebox.v1.Empty
-	1,  // 22: tebox.v1.AndroidService.ConfigureInstance:output_type -> tebox.v1.Empty
-	1,  // 23: tebox.v1.AndroidService.SendKey:output_type -> tebox.v1.Empty
-	1,  // 24: tebox.v1.AndroidService.PowerDown:output_type -> tebox.v1.Empty
-	11, // 25: tebox.v1.AndroidService.GetPreview:output_type -> tebox.v1.GetPreviewResponse
-	15, // [15:26] is the sub-list for method output_type
-	4,  // [4:15] is the sub-list for method input_type
-	4,  // [4:4] is the sub-list for extension type_name
-	4,  // [4:4] is the sub-list for extension extendee
-	0,  // [0:4] is the sub-list for field type_name
+	17, // 0: tebox.v1.ConfigureInstanceRequest.profile:type_name -> tebox.v1.DeviceProfile
+	8,  // 1: tebox.v1.UpdateInstanceRequest.cmdline:type_name -> tebox.v1.StringList
+	8,  // 2: tebox.v1.UpdateInstanceRequest.append:type_name -> tebox.v1.StringList
+	17, // 3: tebox.v1.UpdateInstanceRequest.profile:type_name -> tebox.v1.DeviceProfile
+	14, // 4: tebox.v1.ListInstancesResponse.instances:type_name -> tebox.v1.Instance
+	17, // 5: tebox.v1.Instance.profile:type_name -> tebox.v1.DeviceProfile
+	0,  // 6: tebox.v1.Instance.state:type_name -> tebox.v1.InstanceState
+	2,  // 7: tebox.v1.AndroidService.ListInstances:input_type -> tebox.v1.ListInstancesRequest
+	4,  // 8: tebox.v1.AndroidService.GetInstance:input_type -> tebox.v1.InstanceRequest
+	3,  // 9: tebox.v1.AndroidService.CreateInstance:input_type -> tebox.v1.CreateInstanceRequest
+	9,  // 10: tebox.v1.AndroidService.UpdateInstance:input_type -> tebox.v1.UpdateInstanceRequest
+	4,  // 11: tebox.v1.AndroidService.DeleteInstance:input_type -> tebox.v1.InstanceRequest
+	4,  // 12: tebox.v1.AndroidService.StartInstance:input_type -> tebox.v1.InstanceRequest
+	4,  // 13: tebox.v1.AndroidService.StopInstance:input_type -> tebox.v1.InstanceRequest
+	5,  // 14: tebox.v1.AndroidService.ResetInstance:input_type -> tebox.v1.ResetInstanceRequest
+	6,  // 15: tebox.v1.AndroidService.ConfigureInstance:input_type -> tebox.v1.ConfigureInstanceRequest
+	7,  // 16: tebox.v1.AndroidService.SendKey:input_type -> tebox.v1.KeyRequest
+	4,  // 17: tebox.v1.AndroidService.PowerDown:input_type -> tebox.v1.InstanceRequest
+	15, // 18: tebox.v1.AndroidService.GetPreview:input_type -> tebox.v1.GetPreviewRequest
+	10, // 19: tebox.v1.AndroidService.GetConsoleLog:input_type -> tebox.v1.ConsoleLogRequest
+	10, // 20: tebox.v1.AndroidService.StreamConsoleLog:input_type -> tebox.v1.ConsoleLogRequest
+	13, // 21: tebox.v1.AndroidService.ListInstances:output_type -> tebox.v1.ListInstancesResponse
+	14, // 22: tebox.v1.AndroidService.GetInstance:output_type -> tebox.v1.Instance
+	14, // 23: tebox.v1.AndroidService.CreateInstance:output_type -> tebox.v1.Instance
+	14, // 24: tebox.v1.AndroidService.UpdateInstance:output_type -> tebox.v1.Instance
+	1,  // 25: tebox.v1.AndroidService.DeleteInstance:output_type -> tebox.v1.Empty
+	1,  // 26: tebox.v1.AndroidService.StartInstance:output_type -> tebox.v1.Empty
+	1,  // 27: tebox.v1.AndroidService.StopInstance:output_type -> tebox.v1.Empty
+	1,  // 28: tebox.v1.AndroidService.ResetInstance:output_type -> tebox.v1.Empty
+	1,  // 29: tebox.v1.AndroidService.ConfigureInstance:output_type -> tebox.v1.Empty
+	1,  // 30: tebox.v1.AndroidService.SendKey:output_type -> tebox.v1.Empty
+	1,  // 31: tebox.v1.AndroidService.PowerDown:output_type -> tebox.v1.Empty
+	16, // 32: tebox.v1.AndroidService.GetPreview:output_type -> tebox.v1.GetPreviewResponse
+	11, // 33: tebox.v1.AndroidService.GetConsoleLog:output_type -> tebox.v1.ConsoleLogResponse
+	12, // 34: tebox.v1.AndroidService.StreamConsoleLog:output_type -> tebox.v1.ConsoleLogChunk
+	21, // [21:35] is the sub-list for method output_type
+	7,  // [7:21] is the sub-list for method input_type
+	7,  // [7:7] is the sub-list for extension type_name
+	7,  // [7:7] is the sub-list for extension extendee
+	0,  // [0:7] is the sub-list for field type_name
 }
 
 func init() { file_tebox_proto_init() }
@@ -1099,13 +1541,14 @@ func file_tebox_proto_init() {
 	if File_tebox_proto != nil {
 		return
 	}
+	file_tebox_proto_msgTypes[8].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_tebox_proto_rawDesc), len(file_tebox_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   12,
+			NumMessages:   17,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

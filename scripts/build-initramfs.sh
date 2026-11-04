@@ -108,6 +108,10 @@ load virtio_input.ko
 load virtio_balloon.ko
 load virtio-rng.ko
 load system_heap.ko
+# tebox control bus (guest half): exposes /dev/tebox_ctl, the guest<->host +
+# guest-internal message bus. Needs virtio_pci (above). Harmless if the
+# tebox-ctl virtio device is absent (driver just never probes).
+load tebox_ctl.ko
 # tebox MVX V4L2 passthrough (guest half); only present when built. Needs
 # virtio_pci (above) + the builtin V4L2 core. Harmless if the QEMU device is
 # absent (no tebox-v4l2 virtio device -> driver just never probes).

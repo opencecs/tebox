@@ -4,8 +4,9 @@
 #   host-drivers/*.deb
 #   tebox/   → /opt/tebox
 #
-# No baked VARIANT / KERNEL_ID: CreateInstance supplies guest imgs; kernel
-# Image + *.ko and thin aosp/*/KERNEL metadata ship in the image.
+# No baked VARIANT / KERNEL_ID and no src/aosp: CreateInstance supplies guest
+# imgs + cmdline/gpu/kernel; the variant tree is bind-mounted per instance.
+# Only the host runtime + the kernel Image + *.ko ship in the image.
 FROM debian:trixie-slim
 ARG APT_MIRROR=
 RUN echo 'Acquire::Retries "8";' > /etc/apt/apt.conf.d/80-retries \
@@ -34,7 +35,6 @@ RUN chmod +x /opt/tebox/bin/tebox-api /opt/tebox/out/service/tebox-cast \
       /opt/tebox/scripts/*.sh /opt/tebox/run \
       /opt/tebox/prebuilts/host/linux-arm64/qemu/bin/qemu-system-aarch64 \
  && test -n "$(ls /opt/tebox/src/kernel/*/gki/Image 2>/dev/null)" \
- && test -n "$(ls /opt/tebox/src/aosp/*/KERNEL 2>/dev/null)" \
  && test -n "$(ls /opt/tebox/src/kernel/*/vendor_modules/*.ko 2>/dev/null)" \
  && ! find /opt/tebox -name '*.img' | grep -q .
 

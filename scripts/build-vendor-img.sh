@@ -47,6 +47,19 @@ rm -rf "$STAGE"
 mkdir -p "$STAGE"
 cp -a "$STUB"/. "$STAGE"/
 
+# tebox display-rotation reporter: a common component (src/common), packed here
+# at build time rather than committed under the variant's qemu/vendor. It runs
+# in the permissive hal_keymint_system domain (seclabel in the .rc) and publishes
+# the rotation on the tebox control bus (/dev/tebox_ctl). Harmless where the bus
+# is absent (the device write just fails). The generic ea_set loop below labels
+# bin/* vendor_file and etc/* vendor_configs_file; /vendor/etc/init/*.rc is
+# imported by init.
+ROT="$ROOT/src/common/hardware/interfaces/graphics/aidl/default/rotation"
+if [[ -f "$ROT/tebox-rotation.sh" ]]; then
+  install -D -m 0755 "$ROT/tebox-rotation.sh" "$STAGE/bin/tebox-rotation.sh"
+  install -D -m 0644 "$ROT/tebox-rotation.rc" "$STAGE/etc/init/tebox-rotation.rc"
+fi
+
 # OriginOS publishes init as init.qcom.rc (androidboot.hardware=qcom) with the
 # real script inside the image, so the initramfs does not bind-mount it.
 if [[ -f "$AOSP/qemu/init/bake-overlays" ]]; then

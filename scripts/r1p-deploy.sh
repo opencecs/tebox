@@ -103,7 +103,7 @@ build_tebox_api() {
     [[ -z "$newest" ]] && { echo "reuse $BIN/tebox-api"; return 0; }
   fi
   (cd "$ROOT/src/service/api" && GOOS=linux GOARCH=arm64 CGO_ENABLED=0 \
-    go build -ldflags='-s -w' -o "$BIN/tebox-api" ./cmd/tebox-api)
+    go build -ldflags='-s -w' -o "$BIN/tebox-api" ./cmd/server)
 }
 
 require_products() {
@@ -152,9 +152,12 @@ stage_products() {
 
   rm -rf "$STAGE"
   local t="$STAGE/tebox"
+  # No src/aosp in the image: the variant tree (KERNEL/GPU/cmdline/images) is
+  # provided at runtime — bind-mounted per instance, or supplied over the API
+  # at CreateInstance. Only the host runtime (qemu/api/cast) + the kernel
+  # Image/*.ko ship baked.
   mkdir -p "$STAGE/host-drivers" \
     "$t/bin" "$t/lib" "$t/out/service" "$t/scripts" "$t/build/make/core" \
-    "$t/src/aosp/$VARIANT/qemu/cmdline" \
     "$t/src/kernel/$KID/gki" "$t/src/kernel/$KID/vendor_modules" \
     "$t/prebuilts/host/linux-arm64/qemu/bin" \
     "$t/prebuilts/host/linux-arm64/qemu/share/qemu"
@@ -202,12 +205,9 @@ stage_products() {
   cp -a "$KDIR/vendor_modules/"*.ko "$t/src/kernel/$KID/vendor_modules/"
   [[ ! -f "$KDIR/vendor_modules/modules.load" ]] || \
     cp "$KDIR/vendor_modules/modules.load" "$t/src/kernel/$KID/vendor_modules/"
-
-  # --- thin variant metadata only (no qemu/init, images, hardware, …) ---
-  cp "$AOSP/KERNEL" "$t/src/aosp/$VARIANT/"
-  [[ ! -f "$AOSP/GPU" ]] || cp "$AOSP/GPU" "$t/src/aosp/$VARIANT/"
-  cp "$AOSP/qemu/cmdline/boot" "$t/src/aosp/$VARIANT/qemu/cmdline/"
-  [[ ! -f "$AOSP/qemu/vulkan-hal" ]] || cp "$AOSP/qemu/vulkan-hal" "$t/src/aosp/$VARIANT/qemu/"
+  # The variant tree ($AOSP: KERNEL/GPU/cmdline/images) is NOT baked — it is
+  # bind-mounted per instance or supplied over the API at CreateInstance. $AOSP
+  # is still read above only to resolve $KID (which kernel to ship).
 
   cp "$ROOT/thirdparty/host-drivers/$R1P_DRIVERS"/*.deb "$STAGE/host-drivers/"
 

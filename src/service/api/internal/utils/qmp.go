@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"tebox-api/internal/constants"
-	"tebox-api/internal/tebox/types"
+	"tebox-api/internal/service/types"
 )
 
 // KeyQCode builds a qcode KeyValue.

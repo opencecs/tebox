@@ -4,9 +4,9 @@ OUT := $(ROOT)/out/service
 .PHONY: all clean
 all: $(OUT)/tebox-api
 
-$(OUT)/tebox-api: $(wildcard cmd/tebox-api/*.go) $(wildcard internal/tebox/*.go) $(wildcard api/v1/*.go)
+$(OUT)/tebox-api: $(wildcard cmd/server/*.go) $(wildcard internal/server/*.go) $(wildcard internal/service/*.go) $(wildcard internal/utils/*.go) $(wildcard api/v1/*.go)
 	@mkdir -p $(OUT)
-	go build -o $@ ./cmd/tebox-api
+	go build -o $@ ./cmd/server
 	@chmod +x $@
 
 clean:

@@ -48,6 +48,7 @@ typedef struct TeboxCastFrame {
     uint32_t format;
     uint64_t pts_us;
     int dmabuf_fd;
+    int fence_fd; /* GPU done with the dma-buf; -1 if already finished */
 } TeboxCastFrame;
 
 typedef struct TeboxCastState {
@@ -90,6 +91,8 @@ typedef struct TeboxCastState {
 static TeboxCastState tebox_cast = {
     .fd = -1,
     .dma_fd = -1,
+    .pending.dmabuf_fd = -1,
+    .pending.fence_fd = -1,
 };
 
 bool tebox_cast_enabled(void)
@@ -370,8 +373,16 @@ static bool tebox_ensure_scale_fbo(int w, int h)
     return true;
 }
 
+static void tebox_close_fence(int fence_fd)
+{
+    if (fence_fd >= 0) {
+        close(fence_fd);
+    }
+}
+
 static void tebox_queue_frame(uint8_t *pixels, size_t nbytes, int dmabuf_fd,
-                              int w, int h, uint32_t format, uint64_t pts)
+                              int fence_fd, int w, int h, uint32_t format,
+                              uint64_t pts)
 {
     g_mutex_lock(&tebox_cast.lock);
     if (tebox_cast.busy || tebox_cast.has_pending) {
@@ -381,6 +392,7 @@ static void tebox_queue_frame(uint8_t *pixels, size_t nbytes, int dmabuf_fd,
             if (tebox_cast.pending.dmabuf_fd >= 0) {
                 close(tebox_cast.pending.dmabuf_fd);
             }
+            tebox_close_fence(tebox_cast.pending.fence_fd);
         } else {
             tebox_cast.dropped++;
             g_mutex_unlock(&tebox_cast.lock);
@@ -388,12 +400,14 @@ static void tebox_queue_frame(uint8_t *pixels, size_t nbytes, int dmabuf_fd,
             if (dmabuf_fd >= 0) {
                 close(dmabuf_fd);
             }
+            tebox_close_fence(fence_fd);
             return;
         }
         tebox_cast.dropped++;
     }
     tebox_cast.pending.pixels = pixels;
     tebox_cast.pending.dmabuf_fd = dmabuf_fd;
+    tebox_cast.pending.fence_fd = fence_fd;
     tebox_cast.pending.nbytes = nbytes;
     tebox_cast.pending.width = w;
     tebox_cast.pending.height = h;
@@ -405,6 +419,19 @@ static void tebox_queue_frame(uint8_t *pixels, size_t nbytes, int dmabuf_fd,
 }
 
 #ifdef CONFIG_GBM
+/* Sender thread: the blit is already queued. Wait here, not on the UI thread. */
+static void tebox_wait_fence(int fence_fd)
+{
+    struct pollfd pfd = { .fd = fence_fd, .events = POLLIN };
+
+    if (fence_fd < 0) {
+        return;
+    }
+    while (poll(&pfd, 1, 1000) < 0 && errno == EINTR) {
+    }
+    close(fence_fd);
+}
+
 /* Header + 4-byte payload with the dma-buf attached; waits for the ack. */
 static bool tebox_send_dmabuf(int fd, const TeboxCastFrame *fr)
 {
@@ -541,9 +568,188 @@ out:
     return ok;
 }
 
-/* Scales the guest frame into the dma-buf; false if that path is off. */
+/* ---- Rotated GPU blit: glBlitFramebuffer can scale/flip but not rotate 90,
+ * so landscape goes through a small shader to keep the dma-buf zero-copy. ---- */
+static struct {
+    GLuint prog, vao, vbo, tex, fbo;
+    int tw, th;
+    GLint u_tex;
+    bool failed;
+} tebox_rot;
+
+static GLuint tebox_rot_shader(GLenum type, const char *src)
+{
+    GLuint s = glCreateShader(type);
+    GLint ok = 0;
+
+    glShaderSource(s, 1, &src, NULL);
+    glCompileShader(s);
+    glGetShaderiv(s, GL_COMPILE_STATUS, &ok);
+    if (!ok) {
+        glDeleteShader(s);
+        return 0;
+    }
+    return s;
+}
+
+static bool tebox_rot_program(void)
+{
+    const char *vs, *fs;
+    GLuint v, f, p;
+    GLint ok = 0;
+
+    if (tebox_rot.prog) {
+        return true;
+    }
+    if (tebox_rot.failed) {
+        return false;
+    }
+    if (epoxy_is_desktop_gl()) {
+        vs = "#version 330 core\n"
+             "layout(location=0) in vec2 p;layout(location=1) in vec2 t;"
+             "out vec2 tc;void main(){tc=t;gl_Position=vec4(p,0.0,1.0);}";
+        fs = "#version 330 core\n"
+             "in vec2 tc;uniform sampler2D s;out vec4 c;"
+             "void main(){c=texture(s,tc);}";
+    } else {
+        vs = "#version 300 es\n"
+             "layout(location=0) in vec2 p;layout(location=1) in vec2 t;"
+             "out vec2 tc;void main(){tc=t;gl_Position=vec4(p,0.0,1.0);}";
+        fs = "#version 300 es\nprecision mediump float;"
+             "in vec2 tc;uniform sampler2D s;out vec4 c;"
+             "void main(){c=texture(s,tc);}";
+    }
+    v = tebox_rot_shader(GL_VERTEX_SHADER, vs);
+    f = tebox_rot_shader(GL_FRAGMENT_SHADER, fs);
+    if (!v || !f) {
+        tebox_rot.failed = true;
+        return false;
+    }
+    p = glCreateProgram();
+    glAttachShader(p, v);
+    glAttachShader(p, f);
+    glLinkProgram(p);
+    glGetProgramiv(p, GL_LINK_STATUS, &ok);
+    glDeleteShader(v);
+    glDeleteShader(f);
+    if (!ok) {
+        glDeleteProgram(p);
+        tebox_rot.failed = true;
+        return false;
+    }
+    tebox_rot.prog = p;
+    tebox_rot.u_tex = glGetUniformLocation(p, "s");
+    glGenVertexArrays(1, &tebox_rot.vao);
+    glGenBuffers(1, &tebox_rot.vbo);
+    return true;
+}
+
+/* guest fbo -> upright portrait intermediate (int_w x int_h) -> dst_fbo
+ * rotated clockwise by cw (dst is landscape for 90/270). */
+static bool tebox_rot_blit(unsigned int guest_fb, int sw, int sh, bool y0_top,
+                           GLuint dst_fbo, int dst_w, int dst_h,
+                           int int_w, int int_h, int cw)
+{
+    GLint draw_fb, read_fb, prog0, vao0, arr0, tex0, act0, vp0[4];
+    const float u[4] = { 0, 1, 0, 1 };
+    const float vv[4] = { 0, 0, 1, 1 };
+    const float px[4] = { -1, 1, -1, 1 };
+    const float py[4] = { -1, -1, 1, 1 };
+    float verts[16];
+    int i;
+
+    if (!tebox_rot_program()) {
+        return false;
+    }
+    if (tebox_rot.tex == 0 || tebox_rot.tw != int_w || tebox_rot.th != int_h) {
+        if (tebox_rot.fbo) {
+            glDeleteFramebuffers(1, &tebox_rot.fbo);
+        }
+        if (tebox_rot.tex) {
+            glDeleteTextures(1, &tebox_rot.tex);
+        }
+        glGenTextures(1, &tebox_rot.tex);
+        glBindTexture(GL_TEXTURE_2D, tebox_rot.tex);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, int_w, int_h, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+        glGenFramebuffers(1, &tebox_rot.fbo);
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, tebox_rot.fbo);
+        glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                               GL_TEXTURE_2D, tebox_rot.tex, 0);
+        tebox_rot.tw = int_w;
+        tebox_rot.th = int_h;
+    }
+    glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &draw_fb);
+    glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &read_fb);
+    glGetIntegerv(GL_CURRENT_PROGRAM, &prog0);
+    glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &vao0);
+    glGetIntegerv(GL_ARRAY_BUFFER_BINDING, &arr0);
+    glGetIntegerv(GL_TEXTURE_BINDING_2D, &tex0);
+    glGetIntegerv(GL_ACTIVE_TEXTURE, &act0);
+    glGetIntegerv(GL_VIEWPORT, vp0);
+
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, guest_fb);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, tebox_rot.fbo);
+    if (y0_top) {
+        glBlitFramebuffer(0, 0, sw, sh, 0, int_h, int_w, 0,
+                          GL_COLOR_BUFFER_BIT, GL_LINEAR);
+    } else {
+        glBlitFramebuffer(0, 0, sw, sh, 0, 0, int_w, int_h,
+                          GL_COLOR_BUFFER_BIT, GL_LINEAR);
+    }
+    for (i = 0; i < 4; i++) {
+        float su, sv;
+
+        switch (cw) {
+        case 90:  su = vv[i];        sv = 1.0f - u[i];  break;
+        case 180: su = 1.0f - u[i];  sv = 1.0f - vv[i]; break;
+        case 270: su = 1.0f - vv[i]; sv = u[i];         break;
+        default:  su = u[i];         sv = vv[i];        break;
+        }
+        verts[i * 4 + 0] = px[i];
+        verts[i * 4 + 1] = py[i];
+        verts[i * 4 + 2] = su;
+        verts[i * 4 + 3] = sv;
+    }
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, dst_fbo);
+    glViewport(0, 0, dst_w, dst_h);
+    glUseProgram(tebox_rot.prog);
+    glBindVertexArray(tebox_rot.vao);
+    glBindBuffer(GL_ARRAY_BUFFER, tebox_rot.vbo);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(verts), verts, GL_STREAM_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float),
+                          (void *)0);
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float),
+                          (void *)(2 * sizeof(float)));
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, tebox_rot.tex);
+    glUniform1i(tebox_rot.u_tex, 0);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+    glBindVertexArray(vao0);
+    glBindBuffer(GL_ARRAY_BUFFER, arr0);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, tex0);
+    glActiveTexture(act0);
+    glUseProgram(prog0);
+    glViewport(vp0[0], vp0[1], vp0[2], vp0[3]);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, draw_fb);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, read_fb);
+    return true;
+}
+
+/* Scales (and for landscape rotates) the guest frame into the dma-buf; false
+ * if that path is off. int_w/int_h are the unrotated (portrait) size; out_w/
+ * out_h are the final size (swapped for 90/270). */
 static bool tebox_cast_capture_dmabuf(unsigned int framebuffer, int src_w,
                                       int src_h, int out_w, int out_h,
+                                      int int_w, int int_h, int cw,
                                       bool y0_top, uint64_t now)
 {
     GLint draw_fb, read_fb;
@@ -551,6 +757,14 @@ static bool tebox_cast_capture_dmabuf(unsigned int framebuffer, int src_w,
 
     if (!tebox_ensure_dmabuf_target(out_w, out_h)) {
         return false;
+    }
+    if (cw != 0) {
+        if (!tebox_rot_blit(framebuffer, src_w, src_h, y0_top,
+                            tebox_cast.dma_fbo, out_w, out_h,
+                            int_w, int_h, cw)) {
+            return false;
+        }
+        goto handoff;
     }
     glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &draw_fb);
     glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &read_fb);
@@ -569,14 +783,32 @@ static bool tebox_cast_capture_dmabuf(unsigned int framebuffer, int src_w,
     }
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, draw_fb);
     glBindFramebuffer(GL_READ_FRAMEBUFFER, read_fb);
-    glFinish();  /* the encoder reads the buffer right after the hand-off */
+handoff:
+    /*
+     * The UI thread is inside virtio-gpu's renderer_blocked. glFinish here
+     * holds that lock until the blit retires and the guest spins. Queue a
+     * native fence and let the sender wait; fall back only if the driver
+     * cannot hand one out.
+     */
+    {
+        EGLSyncKHR sync = egl_create_sync();
+        int fence_fd = -1;
 
-    fd = dup(tebox_cast.dma_fd);
-    if (fd < 0) {
-        return false;
+        if (sync) {
+            glFlush();
+            fence_fd = egl_create_fence(sync);
+        }
+        if (fence_fd < 0) {
+            glFinish();
+        }
+        fd = dup(tebox_cast.dma_fd);
+        if (fd < 0) {
+            tebox_close_fence(fence_fd);
+            return false;
+        }
+        tebox_queue_frame(NULL, 0, fd, fence_fd, out_w, out_h,
+                          TEBOX_CAST_RGBA | TEBOX_CAST_DMABUF, now);
     }
-    tebox_queue_frame(NULL, 0, fd, out_w, out_h,
-                      TEBOX_CAST_RGBA | TEBOX_CAST_DMABUF, now);
     tebox_cast.last_us = now;
     return true;
 }
@@ -602,6 +834,8 @@ static gpointer tebox_sender_thread(gpointer opaque)
 
         fr = tebox_cast.pending;
         tebox_cast.pending.pixels = NULL;
+        tebox_cast.pending.dmabuf_fd = -1;
+        tebox_cast.pending.fence_fd = -1;
         tebox_cast.has_pending = false;
         tebox_cast.busy = true;
 
@@ -610,6 +844,7 @@ static gpointer tebox_sender_thread(gpointer opaque)
             if (fr.dmabuf_fd >= 0) {
                 close(fr.dmabuf_fd);
             }
+            tebox_close_fence(fr.fence_fd);
             tebox_cast.busy = false;
             continue;
         }
@@ -618,7 +853,11 @@ static gpointer tebox_sender_thread(gpointer opaque)
 
 #ifdef CONFIG_GBM
         if (fr.dmabuf_fd >= 0) {
-            bool ok = tebox_send_dmabuf(fd, &fr);
+            bool ok;
+
+            tebox_wait_fence(fr.fence_fd);
+            fr.fence_fd = -1;
+            ok = tebox_send_dmabuf(fd, &fr);
 
             close(fr.dmabuf_fd);
             g_mutex_lock(&tebox_cast.lock);
@@ -668,6 +907,8 @@ static gpointer tebox_sender_thread(gpointer opaque)
         if (tebox_cast.pending.dmabuf_fd >= 0) {
             close(tebox_cast.pending.dmabuf_fd);
         }
+        tebox_close_fence(tebox_cast.pending.fence_fd);
+        tebox_cast.pending.fence_fd = -1;
         tebox_cast.has_pending = false;
     }
     tebox_cast_close_locked();
@@ -740,9 +981,21 @@ void tebox_cast_capture(unsigned int framebuffer, int src_w, int src_h,
 
     tebox_calc_out_size(src_w, src_h, &out_w, &out_h);
 #ifdef CONFIG_GBM
-    if (tebox_cast_capture_dmabuf(framebuffer, src_w, src_h, out_w, out_h,
-                                  y0_top, now)) {
-        return;
+    {
+        /* Guest landscape: rotate upright so the dma-buf (and thus the cast
+         * stream) stays correctly oriented. cw is the clockwise correction;
+         * 90/270 swaps the final dimensions to landscape. */
+        int cw = (360 - tebox_display_rotation()) % 360;
+        int fin_w = out_w, fin_h = out_h;
+
+        if (cw == 90 || cw == 270) {
+            fin_w = out_h;
+            fin_h = out_w;
+        }
+        if (tebox_cast_capture_dmabuf(framebuffer, src_w, src_h, fin_w, fin_h,
+                                      out_w, out_h, cw, y0_top, now)) {
+            return;
+        }
     }
 #endif
     if (!tebox_ensure_scale_fbo(out_w, out_h)) {
@@ -810,7 +1063,7 @@ void tebox_cast_capture(unsigned int framebuffer, int src_w, int src_h,
         tebox_flip_vertical(copy, out_w, out_h);
     }
 
-    tebox_queue_frame(copy, nbytes, -1, out_w, out_h, format, now);
+    tebox_queue_frame(copy, nbytes, -1, -1, out_w, out_h, format, now);
     tebox_cast.last_us = now;
 }
 
@@ -870,7 +1123,7 @@ void tebox_cast_capture_pixels(const void *pixels, int width, int height,
     pixman_image_unref(src);
     pixman_image_unref(dst);
     tebox_cast.last_us = now;
-    tebox_queue_frame(copy, (size_t)out_w * out_h * 4, -1, out_w, out_h,
+    tebox_queue_frame(copy, (size_t)out_w * out_h * 4, -1, -1, out_w, out_h,
                       0 /* CAST_FMT_BGRA8888 */, now);
 }
 

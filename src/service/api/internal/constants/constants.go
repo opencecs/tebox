@@ -11,14 +11,6 @@ var (
 	ErrInputNotRunning = errors.New("instance is not running or does not exist")
 )
 
-// Instance lifecycle states.
-const (
-	StateStopped  = "stopped"
-	StateStarting = "starting"
-	StateRunning  = "running"
-	StateStopping = "stopping"
-)
-
 // Default CreateInstance resource sizes.
 const (
 	DefaultCPUCores = 4
@@ -32,8 +24,23 @@ const (
 	EnvADB     = "TEBOX_ADB"
 	EnvRoot    = "TEBOX_ROOT"
 	EnvDataDir = "TEBOX_DATA_DIR"
-	EnvVariant = "TEBOX_VARIANT"
 )
+
+// DefaultCmdline is the fixed kernel / androidboot cmdline the API passes as
+// TEBOX_CMDLINE when an instance was created without one of its own.
+// boot-qemu.sh layers GPU / debug / extra tokens on top of these.
+var DefaultCmdline = []string{
+	"console=ttyAMA0,115200",
+	"earlycon=pl011,0x9000000",
+	"ignore_loglevel",
+	"androidboot.console=ttyAMA0",
+	"androidboot.hardware=ranchu",
+	"androidboot.selinux=permissive",
+	"androidboot.zygote=zygote64",
+	"androidboot.init_fatal_reboot_target=",
+	"rdinit=/init",
+	"module.sig_enforce=0",
+}
 
 // Control / input event types and actions (JSON wire values).
 const (
@@ -98,6 +105,9 @@ const (
 	QMPDialFastTimeout    = 200 * time.Millisecond
 	QMPScreendumpTimeout  = 8 * time.Second
 	QMPWriteRetries       = 2
+
+	CastHandshakeTimeout = 5 * time.Second
+	CastDialTimeout      = 2 * time.Second
 )
 
 // Paths / markers.
@@ -105,6 +115,28 @@ const (
 	RunDirMarker      = ".tebox-instance"
 	MaxInstanceDirLen = 103 - len("/qmp-input.sock")
 	DefaultADBBinary  = "adb"
+	// ConsoleLogName is the per-instance serial console capture under its dir.
+	ConsoleLogName = "console.log"
+	// ConsoleLogTailDefault / Max bound GetConsoleLog's tail read (bytes).
+	ConsoleLogTailDefault = 64 * 1024
+	ConsoleLogTailMax     = 4 * 1024 * 1024
+)
+
+// Cast framing. Codecs match cast/include/cast/protocol.h.
+const (
+	ProtoCast   = "TEBOX-CAST/1"
+	ProtoAudio  = "TEBOX-AUDIO/1"
+	ProtoCtrl   = "TEBOX-CTRL/1"
+	ProtoCamera = "TEBOX-CAMERA/1"
+
+	CodecAAC      = 16
+	CodecMJPEG    = 32
+	CodecPCM      = 33
+	CodecRotation = 48 // server -> viewer: guest rotation, 1 byte quarter-turns
+
+	CastRecordHeader = 10
+	CastUplinkMax    = 4 << 20 // CAST_UPLINK_MAX
+	CastDownlinkMax  = 32 << 20
 )
 
 // Preview defaults.

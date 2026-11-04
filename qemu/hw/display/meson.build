@@ -49,6 +49,11 @@ if host_os == 'linux'
   system_ss.add(when: ['CONFIG_VIRTIO', 'CONFIG_VIRTIO_PCI'],
                 if_true: files('tebox-mali.c'))
 endif
+# tebox-ctl (local): the guest<->host leg of the tebox control bus. Unlike
+# v4l2/mali it is a plain chardev byte pipe (no host hardware), so it builds on
+# every host, macOS included.
+system_ss.add(when: ['CONFIG_VIRTIO', 'CONFIG_VIRTIO_PCI'],
+              if_true: files('tebox-ctl.c'))
 system_ss.add(when: 'CONFIG_DM163', if_true: files('dm163.c'))
 system_ss.add(when: 'CONFIG_VHOST_USER_MEDIA', if_true: files('vhost-user-media.c'))
 system_ss.add(when: ['CONFIG_VHOST_USER_MEDIA', 'CONFIG_VIRTIO_PCI'],
