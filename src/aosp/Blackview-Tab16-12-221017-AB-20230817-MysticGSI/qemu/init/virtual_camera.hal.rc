@@ -1,0 +1,2 @@
+# QEMU provides its own camera provider HAL. The GSI virtual-device camera
+# service is intentionally masked because it requires GL_EXT_YUV_target.

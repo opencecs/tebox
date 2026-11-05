@@ -1,0 +1,7 @@
+<manifest version="1.0" type="device">
+    <hal format="aidl">
+        <name>android.hardware.wifi</name>
+        <version>2</version>
+        <fqname>IWifi/default</fqname>
+    </hal>
+</manifest>

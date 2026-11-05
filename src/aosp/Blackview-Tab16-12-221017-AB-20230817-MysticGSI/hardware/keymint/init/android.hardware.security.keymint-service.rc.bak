@@ -1,0 +1,16 @@
+# KeyMint HAL — start with early_hal; also expose AIDL interfaces for SM.
+
+service vendor.keymint-default /vendor/bin/hw/android.hardware.security.keymint-service
+    class early_hal
+    user nobody
+    group nobody
+    interface aidl android.hardware.security.keymint.IKeyMintDevice/default
+    interface aidl android.hardware.security.secureclock.ISecureClock/default
+    interface aidl android.hardware.security.sharedsecret.ISharedSecret/default
+
+# Belt-and-suspenders: start even if early_hal class_start was missed.
+on early-boot
+    start vendor.keymint-default
+
+on property:sys.boot_completed=0
+    start vendor.keymint-default

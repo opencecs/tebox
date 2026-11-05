@@ -1,0 +1,6 @@
+<!-- The modern manifest enables loading the sibling manifest/*.xml fragments. -->
+<manifest version="1.0" type="device">
+    <sepolicy>
+        <version>202504.0</version>
+    </sepolicy>
+</manifest>

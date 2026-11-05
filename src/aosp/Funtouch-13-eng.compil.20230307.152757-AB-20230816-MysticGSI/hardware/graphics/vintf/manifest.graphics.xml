@@ -1,0 +1,20 @@
+<!-- Soft graphics HAL stub: composer3 v3 + allocator v2 + mapper.stub -->
+<manifest version="1.0" type="device">
+    <hal format="aidl">
+        <name>android.hardware.graphics.composer3</name>
+        <version>3</version>
+        <fqname>IComposer/default</fqname>
+    </hal>
+    <hal format="aidl">
+        <name>android.hardware.graphics.allocator</name>
+        <version>2</version>
+        <fqname>IAllocator/default</fqname>
+    </hal>
+    <hal format="native">
+        <name>mapper</name>
+        <version>5.0</version>
+        <interface>
+            <instance>stub</instance>
+        </interface>
+    </hal>
+</manifest>

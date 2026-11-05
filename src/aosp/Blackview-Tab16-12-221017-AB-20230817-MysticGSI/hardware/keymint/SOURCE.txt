@@ -1,0 +1,29 @@
+HAL: android.hardware.security.keymint
+======================================
+
+Soft KeyMint based on AOSP PureSoft + AndroidKeyMintDevice.
+Attestation keys loaded at runtime from keybox/keybox.xml
+(AndroidAttestation schema). No custom vendor.* props.
+
+Surface (matches Trusty HAL):
+  getHardwareInfo: TrustyKeyMintDevice / Google
+  SecurityLevel: TRUSTED_ENVIRONMENT
+  Registers: IKeyMintDevice, ISecureClock, ISharedSecret,
+             IRemotelyProvisionedComponent (/default)
+
+Sources
+  src/service.cpp                     — binder registration + keybox load
+  src/KeyboxStore.*                   — XML/PEM → DER
+  src/KeyboxSoftKeymasterContext.*    — GetAttestationKey/Chain from keybox
+  src/ng/*                            — AOSP ng sources (Device uses Keybox context)
+
+Build
+  Soong: android.hardware.security.keymint-service
+  PRODUCT_PACKAGES += android.hardware.security.keymint-service
+
+Install (vendor)
+  /vendor/bin/hw/android.hardware.security.keymint-service
+  /vendor/etc/vintf/manifest/android.hardware.security.keymint-service.xml
+  /vendor/etc/init/android.hardware.security.keymint-service.rc
+  /vendor/etc/keymint/keybox.xml
+  /vendor/etc/permissions/android.hardware.hardware_keystore.xml

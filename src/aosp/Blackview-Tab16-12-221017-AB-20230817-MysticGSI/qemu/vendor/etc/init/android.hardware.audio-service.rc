@@ -1,0 +1,8 @@
+service vendor.audio-hal /vendor/bin/hw/android.hardware.audio.hidl-service
+    class early_hal
+    user root
+    group root audio
+    # Same bring-up execution domain used by the existing graphics/health HALs.
+    seclabel u:r:hal_keymint_system:s0
+    # The GSI audioserver waits for both HIDL factories at startup.
+    onrestart restart audioserver

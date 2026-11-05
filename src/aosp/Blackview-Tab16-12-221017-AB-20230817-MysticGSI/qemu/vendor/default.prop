@@ -1,0 +1,5 @@
+ro.hardware=ranchu
+persist.sys.glamor=1
+persist.radio.multisim.config=dsds
+ro.telephony.sim.count=2
+wifi.interface=wlan0

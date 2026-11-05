@@ -1,0 +1,33 @@
+VARIANT=Funtouch-13-eng.compil.20230307.152757-AB-20230816-MysticGSI
+BUILD_ID=TP1A.220624.014
+INCREMENTAL=eng.compil.20230307.152757
+FINGERPRINT=iQOO/I2212/I2212:13/TP1A.220624.014/compiler03071527:user/release-keys
+DISPLAY_ID=Funtouch OS 13 Global
+FLAVOR=qssi-user
+TARGET=I2212
+ANDROID=13
+SDK=33
+SECURITY_PATCH=2023-03-01
+BUILD_DATE_UTC=1678174077
+
+# system.img / vendor.img / initramfs.img — under images/:
+IMAGES=src/aosp/Funtouch-13-eng.compil.20230307.152757-AB-20230816-MysticGSI/images
+# packing inputs (vendor, busybox, init) — under qemu/:
+QEMU_RT=src/aosp/Funtouch-13-eng.compil.20230307.152757-AB-20230816-MysticGSI/qemu
+# GSI link libs — under prebuilts/:
+GSI_LIBS=src/aosp/Funtouch-13-eng.compil.20230307.152757-AB-20230816-MysticGSI/prebuilts/gsi-lib64
+# Source: third-party MysticGSI port of the vivo/iQOO Funtouch OS 13 release,
+# supplied as a local ext4 system.img (4,496,699,392 bytes) extracted from
+# Funtouch-13-eng.compil.20230307.152757-AB-20230816-MysticGSI.zip. No
+# persistent upstream URL is recorded; verify the image with
+# images/sha256sum.txt (sha256 57d54a895ca6090651faca00d32cd14b492280ef6e16d64589efd4495cdcb67b).
+GSI_SOURCE=local
+
+# Runtime tree provenance: qemu/, hardware/ and prebuilts/ are the Android 13
+# bring-up tree from GSI/Gigaset/Gigaset-13-1693462027-AB-20230918 (itself
+# derived from aosp_arm64-BP4A.251205.006 and adapted to A13), used here as
+# the A13 virgl runtime base for the Funtouch GSI.
+
+# Kernel used by this variant (see KERNEL file → src/kernel/<id>/):
+KERNEL_ID=gki-6.1-android14-gsi
+KERNEL_FETCHED_FROM=../../kernel/gki-6.1-android14-gsi/FETCHED_FROM.txt

@@ -1,0 +1,6 @@
+service vendor.bluetooth-hal-aidl /vendor/bin/hw/android.hardware.bluetooth-service
+    class hal
+    user bluetooth
+    group bluetooth net_bt_admin
+    seclabel u:r:hal_keymint_system:s0
+    interface aidl android.hardware.bluetooth.IBluetoothHci/default

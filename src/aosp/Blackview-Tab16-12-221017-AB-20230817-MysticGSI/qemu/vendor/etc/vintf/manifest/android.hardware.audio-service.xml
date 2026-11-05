@@ -1,0 +1,25 @@
+<manifest version="1.0" type="device">
+    <!-- The Android 13 GSI's audioserver only speaks the HIDL audio HAL.
+         libvintf rejects a second <version> with the same major version
+         ("Duplicated major version"), so only the newest minor is declared.
+         hwservicemanager's interface-chain check queries @7.0, which matches
+         the declared @7.1 through Version::minorAtLeast(). -->
+    <hal format="hidl">
+        <name>android.hardware.audio</name>
+        <transport>hwbinder</transport>
+        <version>7.1</version>
+        <interface>
+            <name>IDevicesFactory</name>
+            <instance>default</instance>
+        </interface>
+    </hal>
+    <hal format="hidl">
+        <name>android.hardware.audio.effect</name>
+        <transport>hwbinder</transport>
+        <version>7.0</version>
+        <interface>
+            <name>IEffectsFactory</name>
+            <instance>default</instance>
+        </interface>
+    </hal>
+</manifest>
