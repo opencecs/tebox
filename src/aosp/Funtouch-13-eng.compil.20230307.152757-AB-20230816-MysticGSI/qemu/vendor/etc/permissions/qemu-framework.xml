@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<permissions>
+    <!-- Quickstep's search container requires the framework AppWidget service. -->
+    <feature name="android.software.app_widgets"/>
+
+    <!-- The virtio NIC is real Ethernet; start the framework DHCP/network agent. -->
+    <feature name="android.hardware.ethernet"/>
+
+    <!-- Stationary virtual sensors supplied by the QEMU Sensors HAL. -->
+    <feature name="android.hardware.sensor.accelerometer"/>
+    <feature name="android.hardware.sensor.gyroscope"/>
+    <feature name="android.hardware.sensor.light"/>
+
+    <!-- Soft dual-SIM radio (slot1 5G T-Mobile US, slot2 4G Vodafone DE). -->
+    <feature name="android.hardware.telephony"/>
+    <feature name="android.hardware.telephony.gsm"/>
+    <feature name="android.hardware.telephony.radio.access"/>
+    <feature name="android.hardware.telephony.subscription"/>
+    <feature name="android.hardware.telephony.data"/>
+    <feature name="android.hardware.telephony.messaging"/>
+    <feature name="android.hardware.telephony.calling"/>
+    <feature name="android.hardware.telephony.ims"/>
+
+    <!-- Soft WiFi HAL chip (wlan0); kernel nl80211 still required for real scans. -->
+    <feature name="android.hardware.wifi"/>
+    <feature name="android.hardware.wifi.direct"/>
+
+    <!-- Soft Bluetooth HCI (virtual controller; no RF discovery). -->
+    <feature name="android.hardware.bluetooth"/>
+    <feature name="android.hardware.bluetooth_le"/>
+
+    <!-- Soft virtual GNSS (Beijing fix, 1Hz; no real RF). -->
+    <feature name="android.hardware.location"/>
+    <feature name="android.hardware.location.gps"/>
+
+    <!-- Soft fingerprint (sensor props only; no real enroll/auth). -->
+    <feature name="android.hardware.fingerprint"/>
+
+    <!-- Soft NFC (enable/disable toggle; no tags). -->
+    <feature name="android.hardware.nfc"/>
+    <feature name="android.hardware.nfc.hce"/>
+    <feature name="android.hardware.nfc.any"/>
+</permissions>
+

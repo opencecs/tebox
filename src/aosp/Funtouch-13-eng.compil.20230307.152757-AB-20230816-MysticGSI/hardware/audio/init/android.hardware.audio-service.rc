@@ -1,0 +1,10 @@
+service vendor.audio-hal-aidl /vendor/bin/hw/android.hardware.audio-service
+    class early_hal
+    user root
+    group root audio
+    # Same bring-up execution domain used by the existing graphics/health HALs.
+    seclabel u:r:hal_keymint_system:s0
+    interface aidl android.hardware.audio.core.IModule/default
+    interface aidl android.hardware.audio.core.IConfig/default
+    interface aidl android.hardware.audio.effect.IFactory/default
+    onrestart restart audioserver

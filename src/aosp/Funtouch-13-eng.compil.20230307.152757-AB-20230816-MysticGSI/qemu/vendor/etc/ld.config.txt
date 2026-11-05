@@ -1,0 +1,28 @@
+# QEMU GSI bring-up linker config (replaces linkerconfig output)
+# Use literal lib64 (not ${LIB}) — basename HAL dlopen was failing to resolve
+# /vendor/${LIB}/hw for mapper.stub.so while absolute paths worked.
+dir.system = /system/lib64
+dir.system_ext = /system_ext/lib64
+dir.product = /product/lib64
+dir.vendor = /vendor/lib64
+dir.odm = /odm/lib64
+
+[default]
+additional.namespaces = system:sphal
+namespace.default.isolated = false
+namespace.default.search.paths = /system/lib64:/system/lib64/hw:/system_ext/lib64:/system_ext/lib64/hw:/product/lib64:/vendor/lib64:/vendor/lib64/hw:/odm/lib64:/apex/com.android.runtime/lib64:/apex/com.android.i18n/lib64:/apex/com.android.art/lib64:/apex/com.android.conscrypt/lib64:/apex/com.android.os.statsd/lib64:/apex/com.android.tzdata/lib64:/apex/com.android.virt/lib64:/apex/com.android.wifi/lib64:/apex/com.android.adbd/lib64:/apex/com.android.media/lib64:/apex/com.android.media.swcodec/lib64:/apex/com.android.resolv/lib64:/apex/com.android.sdkext/lib64:/apex/com.android.extservices/lib64:/apex/com.android.permission/lib64:/apex/com.android.tethering/lib64:/apex/com.android.ipsec/lib64:/apex/com.android.neuralnetworks/lib64:/apex/com.android.scheduling/lib64:/apex/com.android.configinfrastructure/lib64:/apex/com.android.rkpd/lib64
+namespace.default.permitted.paths = /data:/system/:/system_ext/:/product/:/vendor/:/odm/:/apex/:/mnt/
+namespace.default.asan.search.paths = /data/asan/system/lib64:/system/lib64:/data/asan/system_ext/lib64:/system_ext/lib64:/data/asan/product/lib64:/product/lib64:/data/asan/vendor/lib64:/vendor/lib64:/data/asan/odm/lib64:/odm/lib64
+namespace.default.asan.permitted.paths = /data:/system/:/system_ext/:/product/:/vendor/:/odm/:/apex/
+
+namespace.system.isolated = false
+namespace.system.search.paths = /system/lib64:/system_ext/lib64:/apex/com.android.runtime/lib64:/apex/com.android.i18n/lib64:/apex/com.android.art/lib64:/apex/com.android.conscrypt/lib64
+namespace.system.permitted.paths = /system/:/system_ext/:/apex/
+
+# Required by android_load_sphal_library / openDeclaredPassthroughHal (mapper.*.so).
+namespace.sphal.isolated = false
+namespace.sphal.visible = true
+namespace.sphal.search.paths = /odm/lib64:/vendor/lib64:/vendor/lib64/hw:/system/lib64:/apex/com.android.runtime/lib64
+namespace.sphal.permitted.paths = /odm/:/vendor/:/system/:/apex/
+namespace.sphal.asan.search.paths = /data/asan/odm/lib64:/odm/lib64:/data/asan/vendor/lib64:/vendor/lib64:/vendor/lib64/hw:/system/lib64
+namespace.sphal.asan.permitted.paths = /data:/odm/:/vendor/:/system/:/apex/

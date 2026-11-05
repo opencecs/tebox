@@ -1,0 +1,18 @@
+service vendor.radio-hal-aidl /vendor/bin/hw/android.hardware.radio-service
+    class early_hal
+    user radio
+    group radio inet misc
+    seclabel u:r:hal_keymint_system:s0
+    interface aidl android.hardware.radio.config.IRadioConfig/default
+    interface aidl android.hardware.radio.modem.IRadioModem/slot1
+    interface aidl android.hardware.radio.modem.IRadioModem/slot2
+    interface aidl android.hardware.radio.network.IRadioNetwork/slot1
+    interface aidl android.hardware.radio.network.IRadioNetwork/slot2
+    interface aidl android.hardware.radio.sim.IRadioSim/slot1
+    interface aidl android.hardware.radio.sim.IRadioSim/slot2
+    interface aidl android.hardware.radio.data.IRadioData/slot1
+    interface aidl android.hardware.radio.data.IRadioData/slot2
+    interface aidl android.hardware.radio.messaging.IRadioMessaging/slot1
+    interface aidl android.hardware.radio.messaging.IRadioMessaging/slot2
+    interface aidl android.hardware.radio.voice.IRadioVoice/slot1
+    interface aidl android.hardware.radio.voice.IRadioVoice/slot2

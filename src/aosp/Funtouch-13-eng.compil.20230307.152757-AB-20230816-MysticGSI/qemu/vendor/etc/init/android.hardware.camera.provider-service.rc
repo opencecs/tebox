@@ -1,0 +1,11 @@
+on property:sys.boot_completed=1
+    stop cameraserver
+    start android.hardware.camera.provider-service
+    start cameraserver
+
+service android.hardware.camera.provider-service /vendor/bin/hw/android.hardware.camera.provider-service
+    class hal
+    user cameraserver
+    group cameraserver
+    interface aidl android.hardware.camera.provider.ICameraProvider/internal/0
+    oneshot
